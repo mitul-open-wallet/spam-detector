@@ -3,10 +3,15 @@ import { TransactionsFetcher } from './controllers/transactionsFetcher';
 import { appConfig } from './config';
 import express, { Request, Response, Application } from 'express';
 import { SpamDetector } from './controllers/spamDetector';
+import { request } from 'http';
 
 const app: Application = express();
 
 app.use(express.json());
+
+app.get("/nudge", async (request: Request, response: Response) => {
+    response.status(200).send({ "response": "Hey!"})
+})
 
 app.post("/findInfections", async (request: Request, response: Response) => {
     const { userAddress, targetAddress } = request.body;
