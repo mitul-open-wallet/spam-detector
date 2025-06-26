@@ -161,14 +161,21 @@ export class TransactionsFetcher {
         if ((item.possibleSpam) || (item.methodLabel === "airdrop") || (item.category === "airdrop")) {
             return true
         }
+
+        if (item.nativeTransfers.length === 0 
+            && item.erc20Transfers.length === 0 
+            && item.nftTransfers.length === 0 
+            && item.contractInteractions === undefined) {
+                return true
+        }
+
         if (isNFT) {
             return item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer))
         }
-        const isSuspicious = item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer))
-        return isSuspicious
+        return item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer))
     }
 
-    private isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer) {
+    isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer) {
         if (transfer.possibleSpam) {
             return true
         }
@@ -177,9 +184,9 @@ export class TransactionsFetcher {
         }
 
         if ('verifiedContract' in transfer) {
-            return transfer.verifiedContract === false
+            return transfer.verifiedContract === false || transfer.possibleSpam
         } else if ('verifiedCollection' in transfer) {
-            return transfer.verifiedCollection === false
+            return transfer.verifiedCollection === false || transfer.possibleSpam
         }
         return false
     }

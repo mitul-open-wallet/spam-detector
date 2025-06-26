@@ -12,14 +12,19 @@ export class SpamDetector {
     async isSpam(txHash: string, userAdrress: string): Promise<boolean> {
         const transaction = await this.transactionsFetcher.findTransaction(txHash, userAdrress)
         
-        if (transaction.possibleSpam) {
+        if ((transaction.possibleSpam) || (transaction.methodLabel === "airdrop") || (transaction.category === "airdrop")) {
             return true
         }
-        
-        return transaction.erc20Transfers.some(item => 
-            item.possibleSpam || item.verifiedContract === false
+        if (transaction.nativeTransfers.length === 0 
+            && transaction.erc20Transfers.length === 0 
+            && transaction.nftTransfers.length === 0 
+            && transaction.contractInteractions === undefined) {
+                return true
+        }
+        return transaction.erc20Transfers.some(item =>
+            this.transactionsFetcher.isSuspiciousTransfer(item)
         ) || transaction.nftTransfers.some(item => 
-            item.possibleSpam || item.verifiedCollection === false
+            this.transactionsFetcher.isSuspiciousTransfer(item)
         )
     }
 
