@@ -9,7 +9,7 @@ const app: Application = express();
 
 app.use(express.json());
 
-app.post("infections/check", async (request: Request, response: Response) => {
+app.post("/infections/check", async (request: Request, response: Response) => {
     const { userAddress, targetAddress } = request.body;
 
     if (typeof userAddress !== 'string' || !userAddress) {
