@@ -43,19 +43,6 @@ export class TransactionsFetcher {
         }
     }
 
-    async isSpam(txHash: string, userAdrress: string): Promise<boolean> {
-        const transaction = await this.findTransaction(txHash, userAdrress)
-        
-        if ((transaction.possibleSpam) || (transaction.methodLabel === "airdrop") || (transaction.category === "airdrop")) {
-            return true
-        }
-        return transaction.erc20Transfers.some(item => 
-            this.isSuspiciousTransfer(item)
-        ) || transaction.nftTransfers.some(item => 
-            this.isSuspiciousTransfer(item)
-        )
-    }
-
     async findTransaction(txhash: string, userAddress: string): Promise<EvmChain.EvmWalletHistoryTransaction> {
         if (this.isInitialised === false) {
             throw new Error("Moralis client is not initialised")
@@ -103,7 +90,6 @@ export class TransactionsFetcher {
         
         const blockchainTransactions = await this.allTransactions(userAddress)
         const userAddressLower = userAddress.toLowerCase()
-        console.log(`${blockchainTransactions.length}`)
         return blockchainTransactions.flatMap(blockchainTransaction => {
             let chain = blockchainTransaction.blockchain
             return this.collectChainTransactions(chain, blockchainTransaction.transactions, userAddress)
@@ -150,45 +136,39 @@ export class TransactionsFetcher {
                 sender: transfer.fromAddress,
                 recipient: transfer.toAddress,
                 contractAddress: transfer.tokenAddress,
-                isSuspicious: this.isSuspicious(item, true)
+                isSuspicious: this.isSuspicious(item)
             } as ContractItem))
         })
 
         return [...nativeTxs, ...erc20Transactions, ...nftTransactions]
     }
 
-    private isSuspicious(item: EvmChain.EvmWalletHistoryTransaction, isNFT: boolean = false) {
-        if ((item.possibleSpam) || (item.methodLabel === "airdrop") || (item.category === "airdrop")) {
-            return true
+    isSuspicious(item: EvmChain.EvmWalletHistoryTransaction): boolean {
+        if (item.possibleSpam || item.methodLabel === "airdrop" || item.category === "airdrop") {
+            return true;
         }
 
         if (item.nativeTransfers.length === 0 
             && item.erc20Transfers.length === 0 
             && item.nftTransfers.length === 0 
             && item.contractInteractions === undefined) {
-                return true
+            return true;
         }
 
-        if (isNFT) {
-            return item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer))
-        }
-        return item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer))
+        return item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer)) ||
+           item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer));
     }
 
-    isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer) {
-        if (transfer.possibleSpam) {
-            return true
+    private isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer): boolean {
+        if (transfer.possibleSpam || transfer.value === "0") {
+            return true;
         }
-        if (transfer.value === "0") {
-            return true
-        }
-
         if ('verifiedContract' in transfer) {
-            return transfer.verifiedContract === false || transfer.possibleSpam
+            return !transfer.verifiedContract;
         } else if ('verifiedCollection' in transfer) {
-            return transfer.verifiedCollection === false || transfer.possibleSpam
+            return !transfer.verifiedCollection;
         }
-        return false
+        return false;  
     }
 
     private async allTransactions(userAddress: string): Promise<BlockchainTransactions[]> {
