@@ -9,14 +9,9 @@ const app: Application = express();
 
 app.use(express.json());
 
-app.get("/nudge", async (request: Request, response: Response) => {
-    response.status(200).send({ "response": "Hey!"})
-})
-
-app.post("/findInfections", async (request: Request, response: Response) => {
+app.post("infections/check", async (request: Request, response: Response) => {
     const { userAddress, targetAddress } = request.body;
 
-    // Validate required parameters and types
     if (typeof userAddress !== 'string' || !userAddress) {
         response.status(400).send({
             error: "userAdrress (string) is required"
@@ -40,12 +35,9 @@ app.post("/findInfections", async (request: Request, response: Response) => {
     }
 })
 
-// "method_label": "airdrop",
-
-app.post("/isSpam", async (request: Request, response: Response) => {
+app.post("/spam/check", async (request: Request, response: Response) => {
     const { txHash, address } = request.body;
 
-    // Validate required parameters and types
     if (typeof txHash !== 'string' || !txHash) {
         response.status(400).send({
             error: "txHash (string) is required"
@@ -78,7 +70,7 @@ let start = (async () => {
     await instance.initDependencies()
 
     app.listen(appConfig.port, () => {
-        console.log(`Server is running at http://localhost:${appConfig.port}`);
+        console.log(`Server is running at ${appConfig.port}`);
     });
 })
 
