@@ -43,15 +43,12 @@ export class TransactionsFetcher {
         }
     }
 
-    // Write a function to determine whether a transaction is spam or not by looking into nft transfers, ERC-20 transfers and native transfers
-
     async isSpam(txHash: string, userAdrress: string): Promise<boolean> {
         const transaction = await this.findTransaction(txHash, userAdrress)
         
-        if (transaction.possibleSpam) {
+        if ((transaction.possibleSpam) || (transaction.methodLabel === "airdrop") || (transaction.category === "airdrop")) {
             return true
         }
-        
         return transaction.erc20Transfers.some(item => 
             this.isSuspiciousTransfer(item)
         ) || transaction.nftTransfers.some(item => 
@@ -161,6 +158,9 @@ export class TransactionsFetcher {
     }
 
     private isSuspicious(item: EvmChain.EvmWalletHistoryTransaction, isNFT: boolean = false) {
+        if ((item.possibleSpam) || (item.methodLabel === "airdrop") || (item.category === "airdrop")) {
+            return true
+        }
         if (isNFT) {
             return item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer))
         }

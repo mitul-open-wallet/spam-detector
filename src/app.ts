@@ -40,6 +40,8 @@ app.post("/findInfections", async (request: Request, response: Response) => {
     }
 })
 
+// "method_label": "airdrop",
+
 app.post("/isSpam", async (request: Request, response: Response) => {
     const { txHash, address } = request.body;
 
