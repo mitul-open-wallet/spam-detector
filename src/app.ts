@@ -60,7 +60,7 @@ app.post("/spam/check", async (request: Request, response: Response) => {
     } catch (error) {
         console.error("Error checking spam status:", error);
         response.status(500).send({
-            error: "Internal server error"
+            error: `Transaction with txHash: ${txHash} is not associated with ${address}`
         });
     }
 });
