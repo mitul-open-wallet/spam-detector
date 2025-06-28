@@ -11,7 +11,9 @@ export class SpamDetector {
 
     async isSpam(txHash: string, userAdrress: string): Promise<boolean> {
         const transaction = await this.transactionsFetcher.findTransaction(txHash, userAdrress)
-        return this.transactionsFetcher.isSuspicious(transaction)
+        const isSuspicious = this.transactionsFetcher.isSuspicious(transaction)
+        console.log(`txHash: ${txHash} user-address: ${userAdrress} isSuspicious: ${isSuspicious}`)
+        return isSuspicious
     }
 
     async findInfections(userAdrress: string, targetAddress: string): Promise<NativeOrContract[]> {
