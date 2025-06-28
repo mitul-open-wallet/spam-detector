@@ -2,7 +2,6 @@ import Moralis from "moralis";
 import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
 import { BaseTransactionItem, Blockchain, BlockchainTransactions, ContractItem, NativeOrContract } from "../models/blockchian";
 import { appConfig } from "../config";
-import { it } from "node:test";
 
 export class TransactionsFetcher {
 
@@ -210,7 +209,6 @@ export class TransactionsFetcher {
             }
             cursor = result.response.cursor;
         } while (cursor !== undefined);
-        console.log(`result: ${walletTransactions.length} iterations: ${itearationIndex}`);
         return { blockchain: blockchain, transactions: walletTransactions }
     }
 }
