@@ -2,7 +2,6 @@ import Moralis from "moralis";
 import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
 import { BaseTransactionItem, Blockchain, BlockchainTransactions, ContractItem, NativeOrContract } from "../models/blockchian";
 import { appConfig } from "../config";
-import { json } from "stream/consumers";
 
 export class TransactionsFetcher {
 
