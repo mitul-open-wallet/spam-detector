@@ -3,8 +3,6 @@ import { TransactionsFetcher } from './controllers/transactionsFetcher';
 import { appConfig } from './config';
 import express, { Request, Response, Application } from 'express';
 import { SpamDetector } from './controllers/spamDetector';
-import { request } from 'http';
-import { aw } from '@buildonspark/spark-sdk/dist/spark-DjR1b3TC';
 
 const app: Application = express();
 
@@ -24,31 +22,33 @@ app.post("/accidentalTransfer/check", async (request, response) => {
     }
 })
 
+
 app.post("/infections/check", async (request: Request, response: Response) => {
     const { userAddress, targetAddress = undefined } = request.body;
 
     if (typeof userAddress !== 'string' || !userAddress) {
         response.status(400).send({
-            error: "userAdrress (string) is required"
+            error: "userAddress (string) is required"
         });
-        return
+        return;
     }
-    if ((!targetAddress) && (typeof targetAddress !  == 'string')) {
+
+    if (targetAddress !== undefined && typeof targetAddress !== 'string') {
         response.status(400).send({
-            error: "tragetAddress must be a string"
+            error: "targetAddress must be a string or undefined"
         });
-        return
+        return;
     }
 
     try {
-        let infectedTransactions = await new SpamDetector().findInfections(userAddress, targetAddress)
-        response.status(200).send({"infections": infectedTransactions})
+        let infectedTransactions = await new SpamDetector().findInfections(userAddress, targetAddress);
+        response.status(200).send({"infections": infectedTransactions});
     } catch (error) {
         response.status(500).send({
             error: "Internal server error"
-        })
+        });
     }
-})
+});
 
 app.post("/spam/check", async (request: Request, response: Response) => {
     const { txHash, address } = request.body;
