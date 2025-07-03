@@ -11,12 +11,14 @@ export class SpamDetector {
 
     async isSpam(txHash: string, userAdrress: string): Promise<boolean> {
         const transaction = await this.transactionsFetcher.findTransaction(txHash, userAdrress)
-        const isSuspicious = this.transactionsFetcher.isSuspicious(transaction)
-        console.log(`txHash: ${txHash} user-address: ${userAdrress} isSuspicious: ${isSuspicious}`)
-        return isSuspicious
+        return this.transactionsFetcher.isSuspicious(transaction)
     }
 
-    async findInfections(userAdrress: string, targetAddress: string): Promise<NativeOrContract[]> {
+    async findInfections(userAdrress: string, targetAddress: string | undefined = undefined): Promise<NativeOrContract[]> {
         return await this.transactionsFetcher.detectPoisonedTransactions(userAdrress, targetAddress)
+    }
+
+    async findAccidentalTransactions(userAddress: string) {
+        return await this.transactionsFetcher.findAccidentalTransactions(userAddress)
     }
 }

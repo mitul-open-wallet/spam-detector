@@ -2,6 +2,7 @@ import Moralis from "moralis";
 import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
 import { BaseTransactionItem, Blockchain, BlockchainTransactions, ContractItem, NativeOrContract } from "../models/blockchian";
 import { appConfig } from "../config";
+import { json } from "stream/consumers";
 
 export class TransactionsFetcher {
 
@@ -62,6 +63,36 @@ export class TransactionsFetcher {
         return ("isSuspicious" in item && "contractAddress" in item)
     }
 
+    async findAccidentalTransactions(userAddress: string) {
+        let lowercasedUserAddress = userAddress.toLowerCase()
+        const validTransactions = await this.validTransactions(lowercasedUserAddress)
+        const outgoingValidTransactions = validTransactions.filter(tx => tx.direction === "send")
+
+        const detectPoisonedTransactions = await this.detectPoisonedTransactions(lowercasedUserAddress)
+        const sentToPosionedAddress = detectPoisonedTransactions.filter(tx => tx.direction === "send")
+
+        console.log(`poisoned: ${sentToPosionedAddress.length} -- valid: ${outgoingValidTransactions.length}`)
+
+        let currentAddresses: EvmAddress[] = []
+
+        let accidentalTransactions: NativeOrContract[] = []
+        sentToPosionedAddress.forEach(tx => {
+            let receiver = tx.recipient
+            let itemFound = currentAddresses.some(item => item.equals(receiver))
+            if (!itemFound) {
+                currentAddresses.push(receiver)
+                let foundTransaction = outgoingValidTransactions.find(transaction => {
+                    let eqCheck = transaction.recipient.equals(receiver)
+                    return eqCheck
+                })
+                if (foundTransaction) {
+                    accidentalTransactions.push(foundTransaction)
+                }
+            }
+        })
+        return accidentalTransactions
+    }
+
     private async validTransactions(userAddress: string): Promise<NativeOrContract[]> {
         let allTransactions = await this.walletTransactions(userAddress)
         return allTransactions.filter(item => {
@@ -72,14 +103,17 @@ export class TransactionsFetcher {
         })
     }
 
-    async detectPoisonedTransactions(userAddress: string, targetAddress: string): Promise<NativeOrContract[]> {
+    async detectPoisonedTransactions(userAddress: string, targetAddress: string | undefined = undefined): Promise<NativeOrContract[]> {
         const allTransactions = await this.walletTransactions(userAddress)
-        const targetAddressLower = targetAddress?.toLowerCase()
-        let contract = allTransactions
+        let contractTransactions = allTransactions
             .filter(item => this.isContract(item))
             .filter(item => item.isSuspicious)
-            .filter(item => item.recipient.lowercase === targetAddressLower || item.sender.lowercase === targetAddressLower)
-        return contract
+        if (targetAddress !== undefined) {
+            const targetAddressLower = targetAddress.toLowerCase()
+            return contractTransactions.filter(item => item.recipient.lowercase === targetAddressLower || item.sender.lowercase === targetAddressLower)
+        } else {
+            return contractTransactions
+        }
     }
 
     private async walletTransactions(userAddress: string): Promise<NativeOrContract[]> {
@@ -88,7 +122,6 @@ export class TransactionsFetcher {
         }
         
         const blockchainTransactions = await this.allTransactions(userAddress)
-        const userAddressLower = userAddress.toLowerCase()
         return blockchainTransactions.flatMap(blockchainTransaction => {
             let chain = blockchainTransaction.blockchain
             return this.collectChainTransactions(chain, blockchainTransaction.transactions, userAddress)
