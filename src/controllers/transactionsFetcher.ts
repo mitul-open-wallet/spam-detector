@@ -133,7 +133,7 @@ export class TransactionsFetcher {
         userAddress: string
     ): NativeOrContract[] {
         const normalizedUserAddress = userAddress.toLowerCase();
-        let previousResultCount = 0
+        let itemAdded = false
         const result: NativeOrContract[] = [];
     
         for (const transaction of allTransactions) {
@@ -142,6 +142,7 @@ export class TransactionsFetcher {
         
             // Process native transfers
             for (const transfer of transaction.nativeTransfers) {
+                itemAdded = true
                 result.push({
                     blockchain,
                     txHash,
@@ -156,6 +157,7 @@ export class TransactionsFetcher {
         
             // Process ERC20 transfers
             for (const transfer of transaction.erc20Transfers) {
+                itemAdded = true
                 const direction = normalizedUserAddress === transfer.fromAddress.lowercase 
                     ? "send" as const 
                     : "receive" as const;
@@ -176,6 +178,7 @@ export class TransactionsFetcher {
         
             // Process NFT transfers
             for (const transfer of transaction.nftTransfers) {
+                itemAdded = true
                 const direction = normalizedUserAddress === transfer.fromAddress.lowercase 
                     ? "send" as const 
                     : "receive" as const;
@@ -194,9 +197,7 @@ export class TransactionsFetcher {
                 } as ContractItem);
             }
 
-            previousResultCount = result.length
-
-            if ((previousResultCount === result.length) && isSuspicious){
+            if ((itemAdded === false) && isSuspicious) {
                 // this means it was missed, but the transaction is still a spam
                 result.push({
                     blockchain,
@@ -211,6 +212,7 @@ export class TransactionsFetcher {
                     isSuspicious
                 } as BaseTransactionItem);
             }
+            itemAdded = false
         }
     
         return result;
