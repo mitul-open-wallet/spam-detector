@@ -128,51 +128,93 @@ export class TransactionsFetcher {
         })
     }
 
-    private collectChainTransactions(blockchain: Blockchain, allTransactions: EvmChain.EvmWalletHistoryTransaction[], userAddress: string): NativeOrContract[] {
-        const nativeTxs = allTransactions.flatMap(item => 
-            item.nativeTransfers.map(transfer => ({
-                blockchain: blockchain,
-                txHash: item.hash,
-                tokenSymbol: transfer.tokenSymbol,
-                value: transfer.value,
-                decimal: 18,
-                direction: transfer.direction,
-                sender: transfer.fromAddress,
-                recipient: transfer.toAddress
-            } as BaseTransactionItem))
-        )
+    private collectChainTransactions(
+        blockchain: Blockchain, 
+        allTransactions: EvmChain.EvmWalletHistoryTransaction[], 
+        userAddress: string
+    ): NativeOrContract[] {
+        const normalizedUserAddress = userAddress.toLowerCase();
+        let previousResultCount = 0
+        const result: NativeOrContract[] = [];
+    
+        for (const transaction of allTransactions) {
+            const { hash: txHash } = transaction;
+            const isSuspicious = this.isSuspicious(transaction);
+        
+            // Process native transfers
+            for (const transfer of transaction.nativeTransfers) {
+                result.push({
+                    blockchain,
+                    txHash,
+                    tokenSymbol: transfer.tokenSymbol,
+                    value: transfer.value,
+                    decimal: 18,
+                    direction: transfer.direction,
+                    sender: transfer.fromAddress,
+                    recipient: transfer.toAddress
+                } as BaseTransactionItem);
+            }
+        
+            // Process ERC20 transfers
+            for (const transfer of transaction.erc20Transfers) {
+                const direction = normalizedUserAddress === transfer.fromAddress.lowercase 
+                    ? "send" as const 
+                    : "receive" as const;
+                
+                result.push({
+                    blockchain,
+                    txHash,
+                    tokenSymbol: transfer.tokenSymbol,
+                    value: transfer.value,
+                    decimal: transfer.tokenDecimals,
+                    direction,
+                    sender: transfer.fromAddress,
+                    recipient: transfer.toAddress,
+                    contractAddress: transfer.address,
+                    isSuspicious
+                } as ContractItem);
+            }
+        
+            // Process NFT transfers
+            for (const transfer of transaction.nftTransfers) {
+                const direction = normalizedUserAddress === transfer.fromAddress.lowercase 
+                    ? "send" as const 
+                    : "receive" as const;
+                
+                result.push({
+                    blockchain,
+                    txHash,
+                    tokenSymbol: transfer.collectionLogo,
+                    value: transfer.value,
+                    decimal: 0,
+                    direction,
+                    sender: transfer.fromAddress,
+                    recipient: transfer.toAddress,
+                    contractAddress: transfer.tokenAddress,
+                    isSuspicious
+                } as ContractItem);
+            }
 
-        const erc20Transactions = allTransactions.flatMap(item =>
-            item.erc20Transfers.map(transfer => ({
-                blockchain: blockchain,
-                txHash: item.hash,
-                tokenSymbol: transfer.tokenSymbol,
-                value: transfer.value,
-                decimal: transfer.tokenDecimals,
-                direction: userAddress.toLowerCase() === transfer.fromAddress.lowercase ? "send" : "receive",
-                sender: transfer.fromAddress,
-                recipient: transfer.toAddress,
-                contractAddress: transfer.address,
-                isSuspicious: this.isSuspicious(item)
-            } as ContractItem))
-        )
+            previousResultCount = result.length
 
-        const nftTransactions = allTransactions.flatMap(item => {
-            return item.nftTransfers.map(transfer => ({
-                blockchain: blockchain,
-                txHash: item.hash,
-                tokenSymbol: transfer.collectionLogo,
-                value: transfer.value,
-                decimal: 0,
-                direction: userAddress.toLowerCase() === transfer.fromAddress.lowercase ? "send" : "receive",
-                sender: transfer.fromAddress,
-                recipient: transfer.toAddress,
-                contractAddress: transfer.tokenAddress,
-                isSuspicious: this.isSuspicious(item)
-            } as ContractItem))
-        })
-
-        return [...nativeTxs, ...erc20Transactions, ...nftTransactions]
+            if ((previousResultCount === result.length) && isSuspicious){
+                // this means it was missed, but the transaction is still a spam
+                result.push({
+                    blockchain,
+                    txHash,
+                    tokenSymbol: "N/A",
+                    value: transaction.value,
+                    decimal: 18,
+                    direction: undefined,
+                    sender: transaction.fromAddress,
+                    recipient: transaction.toAddress,
+                    contractAddress: "",
+                    isSuspicious
+                } as BaseTransactionItem);
+            }
+        }
+    
+        return result;
     }
 
     isSuspicious(item: EvmChain.EvmWalletHistoryTransaction): boolean {
