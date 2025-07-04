@@ -15,7 +15,9 @@ export class SpamDetector {
     }
 
     async findInfections(userAdrress: string, targetAddress: string | undefined = undefined): Promise<NativeOrContract[]> {
-        return await this.transactionsFetcher.detectPoisonedTransactions(userAdrress, targetAddress)
+        const infections = await this.transactionsFetcher.detectPoisonedTransactions(userAdrress, targetAddress)
+        console.log(`${infections.length} found for address: ${userAdrress}`)
+        return infections
     }
 
     async findAccidentalTransactions(userAddress: string) {
