@@ -66,11 +66,8 @@ export class TransactionsFetcher {
         let lowercasedUserAddress = userAddress.toLowerCase()
         const validTransactions = await this.validTransactions(lowercasedUserAddress)
         const outgoingValidTransactions = validTransactions.filter(tx => tx.direction === "send")
-
         const detectPoisonedTransactions = await this.detectPoisonedTransactions(lowercasedUserAddress)
         const sentToPosionedAddress = detectPoisonedTransactions.filter(tx => tx.direction === "send")
-
-        console.log(`poisoned: ${sentToPosionedAddress.length} -- valid: ${outgoingValidTransactions.length}`)
 
         let currentAddresses: EvmAddress[] = []
 
@@ -92,7 +89,7 @@ export class TransactionsFetcher {
         return accidentalTransactions
     }
 
-    private async validTransactions(userAddress: string): Promise<NativeOrContract[]> {
+    async validTransactions(userAddress: string): Promise<NativeOrContract[]> {
         let allTransactions = await this.walletTransactions(userAddress)
         return allTransactions.filter(item => {
             if (this.isContract(item)) {
@@ -115,7 +112,7 @@ export class TransactionsFetcher {
         }
     }
 
-    private async walletTransactions(userAddress: string): Promise<NativeOrContract[]> {
+    async walletTransactions(userAddress: string): Promise<NativeOrContract[]> {
         if (!this.isInitialised) {
             throw new Error("Moralis client is not initialised")
         }
@@ -142,6 +139,7 @@ export class TransactionsFetcher {
         
             // Process native transfers
             for (const transfer of transaction.nativeTransfers) {
+                console.log(`native: ${transfer.value}`)
                 itemAdded = true
                 result.push({
                     blockchain,

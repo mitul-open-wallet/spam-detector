@@ -3,11 +3,26 @@ import { TransactionsFetcher } from './controllers/transactionsFetcher';
 import { appConfig } from './config';
 import express, { Request, Response, Application } from 'express';
 import { SpamDetector } from './controllers/spamDetector';
+import { request } from 'http';
+import { ThreatDetectionEngine } from './controllers/threatDetectionEngine';
+import { ACDCContest } from './controllers/ACDCContest';
 
 const app: Application = express();
 
 app.use(express.json());
 
+app.post("/acdc/participants", async (request, response) => {
+    const { userAddress } = request.body;
+    let transactions = await new ACDCContest(TransactionsFetcher.getInstance()).pullReceivedTransactions(userAddress)
+    response.status(200).send({ transactions })
+})
+
+app.post("/threatDetection/check", async (request, response) => {
+    const { userAddress, targetAddress } = request.body
+    const threatDetection = new ThreatDetectionEngine()
+    const threatSummary = await threatDetection.findThreat(userAddress, targetAddress)
+    response.status(200).send({ threat: threatSummary })
+})
 
 app.post("/accidentalTransfer/check", async (request, response) => {
     const { userAddress } = request.body;
