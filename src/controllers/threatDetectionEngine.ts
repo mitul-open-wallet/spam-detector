@@ -1,6 +1,7 @@
-import { BaseAddressSimilarity, AlgorithmController, CharacterMatch, LongestMatch, PrefixSuffixMatchPercentage, VisualTricks, WeightedMatch, ThreatElement, AttributeType } from "./algorithm";
+import { AlgorithmController, CharacterMatch, LongestMatch, PrefixSuffixMatchPercentage, VisualTricks, WeightedMatch, ThreatElement, AttributeType } from "./threatDetectionAlgorithm";
 import { SpamDetector } from "./spamDetector";
 import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
+import { NativeOrContract } from "../models/blockchian";
 
 interface ThreatSummary {
     explainer: string,
@@ -25,6 +26,21 @@ export class ThreatDetectionEngine {
     constructor() {
         this.spamDetector = new SpamDetector()
         this.algorithm = new AlgorithmController()
+    }
+
+    async isSpam(txHash: string, userAddress: string): Promise<boolean> {
+        const isSpam = await this.spamDetector.isSpam(txHash, userAddress)
+        return isSpam
+    }
+    
+    async findInfections(userAdrress: string, targetAddress: string | undefined = undefined): Promise<NativeOrContract[]> {
+        const infections = await this.spamDetector.findInfections(userAdrress, targetAddress)
+        console.log(`${infections.length} found for address: ${userAdrress}`)
+        return infections
+    }
+    
+    async findAccidentalTransactions(userAddress: string) {
+        return await this.spamDetector.findAccidentalTransactions(userAddress)
     }
 
     /**
@@ -63,7 +79,7 @@ export class ThreatDetectionEngine {
         })
         if (found) {
             return {
-                explainer: "Target addresses are fraudulent addresses that are crafted to appear nearly identical to valid addresses from the user's transaction history, typically differing by only a few characters to deceive users into sending funds to the wrong recipient.",
+                explainer: "Since you have transacted with this address before, it appears safe to send funds to this address at this time",
                 profile: []
             }
         }
