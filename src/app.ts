@@ -52,6 +52,7 @@ app.post("/infections/check", async (request: Request, response: Response) => {
 
 app.post("/spam/check", async (request: Request, response: Response) => {
     const { txHash, address } = request.body;
+    console.log(`Request with hash ${txHash} arrived at: ${new Date().toLocaleString()}`)
 
     if (typeof txHash !== 'string' || !txHash) {
         response.status(400).send({
@@ -71,6 +72,7 @@ app.post("/spam/check", async (request: Request, response: Response) => {
             txHash,
             address
         );
+        console.log(`Request with hash ${txHash} processed at: ${new Date().toLocaleString()}`)
         response.status(200).send({ isSpam: isSpam });
     } catch (error) {
         console.error("Error checking spam status:", error);
