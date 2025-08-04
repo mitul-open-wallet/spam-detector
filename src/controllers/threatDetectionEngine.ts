@@ -28,17 +28,102 @@ export class ThreatDetectionEngine {
         this.algorithm = new AlgorithmController()
     }
 
+    /**
+     * Determines whether a specific transaction is classified as spam or malicious.
+     * 
+     * This method analyzes a transaction by its hash and associated user address to detect
+     * potentially fraudulent activities such as airdrops, unverified contract interactions,
+     * zero-value transfers, or transactions flagged as possible spam by blockchain analysis.
+     * 
+     * @param txHash - The transaction hash to analyze for spam characteristics
+     * @param userAddress - The user's wallet address associated with the transaction
+     * @returns A Promise that resolves to true if the transaction is spam, false otherwise
+     * 
+     * @example
+     * ```typescript
+     * const engine = new ThreatDetectionEngine();
+     * const isSpamTransaction = await engine.isSpam(
+     *   "0xabc123...",
+     *   "0x1234567890123456789012345678901234567890"
+     * );
+     * if (isSpamTransaction) {
+     *   console.log("This transaction is spam");
+     * }
+     * ```
+     */
     async isSpam(txHash: string, userAddress: string): Promise<boolean> {
         const isSpam = await this.spamDetector.isSpam(txHash, userAddress)
         return isSpam
     }
     
+    /**
+     * Identifies poisoned or infected transactions associated with a user's wallet address.
+     * 
+     * This method searches through a user's transaction history to find suspicious transactions
+     * that have been flagged as infected, typically involving unverified contracts, possible spam,
+     * or other malicious activities. It can optionally filter results for a specific target address.
+     * 
+     * @param userAdrress - The user's wallet address to search for infected transactions
+     * @param targetAddress - Optional specific address to filter infections for. If provided,
+     *                       only returns infections involving this target address
+     * @returns A Promise that resolves to an array of NativeOrContract objects representing
+     *          infected transactions
+     * 
+     * @example
+     * ```typescript
+     * const engine = new ThreatDetectionEngine();
+     * 
+     * // Find all infections for a user
+     * const allInfections = await engine.findInfections(
+     *   "0x1234567890123456789012345678901234567890"
+     * );
+     * 
+     * // Find infections involving a specific target address
+     * const targetInfections = await engine.findInfections(
+     *   "0x1234567890123456789012345678901234567890",
+     *   "0x0987654321098765432109876543210987654321"
+     * );
+     * ```
+     */
     async findInfections(userAdrress: string, targetAddress: string | undefined = undefined): Promise<NativeOrContract[]> {
         const infections = await this.spamDetector.findInfections(userAdrress, targetAddress)
         console.log(`${infections.length} found for address: ${userAdrress}`)
         return infections
     }
     
+    /**
+     * Detects transactions that may have been sent to poisoned addresses by mistake.
+     * 
+     * This method analyzes a user's transaction history to identify cases where they may have
+     * accidentally sent funds to fraudulent addresses that are designed to mimic legitimate
+     * addresses from their transaction history. It compares outgoing valid transactions with
+     * transactions sent to known poisoned addresses to detect potential mistakes.
+     * 
+     * The detection algorithm:
+     * 1. Retrieves all valid outgoing transactions from the user's history
+     * 2. Identifies transactions sent to known poisoned/infected addresses
+     * 3. Compares recipient addresses to find potential cases where the user may have
+     *    confused a legitimate address with a similar-looking poisoned address
+     * 
+     * @param userAddress - The user's wallet address to analyze for accidental transactions
+     * @returns A Promise that resolves to an array of NativeOrContract objects representing
+     *          transactions that may have been sent to poisoned addresses by mistake
+     * 
+     * @example
+     * ```typescript
+     * const engine = new ThreatDetectionEngine();
+     * const accidentalTxs = await engine.findAccidentalTransactions(
+     *   "0x1234567890123456789012345678901234567890"
+     * );
+     * 
+     * if (accidentalTxs.length > 0) {
+     *   console.log(`Found ${accidentalTxs.length} potentially accidental transactions`);
+     *   accidentalTxs.forEach(tx => {
+     *     console.log(`Transaction ${tx.txHash} may have been sent to wrong address`);
+     *   });
+     * }
+     * ```
+     */
     async findAccidentalTransactions(userAddress: string) {
         return await this.spamDetector.findAccidentalTransactions(userAddress)
     }
@@ -100,7 +185,6 @@ export class ThreatDetectionEngine {
             const subjectEthereumAddress = (subject as EvmAddress).lowercase
             let lowerCaseTragetAddress = targetAddress.toLowerCase()
 
-            // source address should not be a part of infected set
             if (subjectEthereumAddress !== lowerCaseTragetAddress) {
                 let sourceAddress = subjectEthereumAddress
 
