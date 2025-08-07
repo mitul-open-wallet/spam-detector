@@ -25,4 +25,8 @@ export class SpamDetector {
     async findAccidentalTransactions(userAddress: string) {
         return await this.transactionsFetcher.findAccidentalTransactions(userAddress)
     }
+
+    async validTransactions(userAddress: string) {
+        return await this.transactionsFetcher.validTransactions(userAddress)
+    }
 }
