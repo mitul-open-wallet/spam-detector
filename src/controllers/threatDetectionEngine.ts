@@ -149,7 +149,11 @@ export class ThreatDetectionEngine {
     async findThreat(userAddress: string, targetAddress: string): Promise<ThreatSummary> {
         const infectedTransactions = await this.spamDetector.findInfections(userAddress, targetAddress)
         if (infectedTransactions.length !== 0) {
-            throw Error(`${targetAddress} has been involved in address poisoning attempt, do not send funds to this address`)
+            //throw Error(`${targetAddress} has been involved in address poisoning attempt, do not send funds to this address`)
+            return {
+                explainer: `${targetAddress} has been involved in address poisoning attempt, do not send funds to this address`,
+                profile: []
+            }
         }
 
         const validTransactions = await this.spamDetector.validTransactions(userAddress)
