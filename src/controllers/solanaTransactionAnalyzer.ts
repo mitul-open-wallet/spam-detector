@@ -1,4 +1,4 @@
-import { SolanaTransactionClient } from "./solanaTransactionClient";
+import { SolanaTransactionClientInterface } from "./solanaTransactionClient";
 import { NativeDustingAttackDetector } from "./SolanaSpamDetector/nativeDustingAttackDetector";
 import { NFTSpamDetector } from "./SolanaSpamDetector/nftSpamDetector";
 import { SwapSpamDetector } from "./SolanaSpamDetector/swapSpamDetector";
@@ -6,14 +6,14 @@ import { TokenSpamDetector } from "./SolanaSpamDetector/tokenSpamDetector";
 import { SolanaTransaction } from "../models/solanaTransaction";
 
 export class SolanaTransactionAnalyzer {
-    solanaTransactionClient: SolanaTransactionClient
+    solanaTransactionClient: SolanaTransactionClientInterface
     nativeDustingAttackDetector: NativeDustingAttackDetector
     tokenSpamDetector: TokenSpamDetector
     swapSpamDetector: SwapSpamDetector
     nftSpamDetector: NFTSpamDetector
 
     constructor(
-        solanaTransactionClient: SolanaTransactionClient, 
+        solanaTransactionClient: SolanaTransactionClientInterface, 
         nativeDustingAttackDetector: NativeDustingAttackDetector,
         nftSpamDetector: NFTSpamDetector, 
         swapSpamDetector: SwapSpamDetector, 

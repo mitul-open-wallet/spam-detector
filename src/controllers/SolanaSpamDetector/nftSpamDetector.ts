@@ -1,12 +1,12 @@
 import { th } from "zod/v4/locales/index.cjs"
-import { SolanaMetadataFetcher } from "../solanaMetadataFetcher"
+import { SolanaMetadataFetcher, SolanaMetadataFetcherInterface } from "../solanaMetadataFetcher"
 import { SolanaTransaction } from "../../models/solanaTransaction"
 
 export class NFTSpamDetector {
 
-    private solanaMetaDataFetcher: SolanaMetadataFetcher
+    private solanaMetaDataFetcher: SolanaMetadataFetcherInterface
 
-    constructor(solanaMetaDataFetcher: SolanaMetadataFetcher) {
+    constructor(solanaMetaDataFetcher: SolanaMetadataFetcherInterface) {
         this.solanaMetaDataFetcher = solanaMetaDataFetcher
     }
 

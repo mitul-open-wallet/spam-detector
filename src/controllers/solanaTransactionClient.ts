@@ -1,92 +1,11 @@
+import { appConfig } from "../config"
 import { SolanaMetadata, SolanaTransaction } from "../models/solanaTransaction"
 
-export class SolanaTransactionClient {
+export interface SolanaTransactionClientInterface {
+    fetchTransactionDetails(txHash: string): Promise<SolanaTransaction>
+}
 
-    // handle NFT
-    private metadataCache = new Map<string, SolanaMetadata>()
-
-    /**
-     * Analyzes compressed NFT transactions to detect spam based on collection metadata
-     * @param userAddress - The user's wallet address
-     * @param transaction - The Solana transaction to analyze
-     * @returns Promise<boolean> - True if spam NFT is detected, false otherwise
-     */
-    async analyzeNFTSpam(userAddress: string, transaction: SolanaTransaction) {
-      const nftMetadata = transaction.events.compressed?.flatMap(compressedNFTData => compressedNFTData.metadata.collection)
-      if (nftMetadata) {
-        const nftContractAddres = nftMetadata?.map(item => item.key)
-        const metadataItems = await this.batchFetchTokenMetadata(nftContractAddres)
-        return metadataItems.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
-      } else {
-        return false
-      }
-    }
-
-    /**
-     * Analyzes swap transactions to detect spam tokens involved in the swap
-     * @param userAddress - The user's wallet address
-     * @param transaction - The Solana transaction containing swap data
-     * @returns Promise<boolean> - True if spam tokens are detected in the swap, false otherwise
-     */
-    async analyzeSwapTransactionForSpam(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
-      const tokenransfers = transaction.tokenTransfers.filter(transfer => (transfer.toUserAccount === userAddress || transfer.fromUserAccount === userAddress))
-      const mintAddresses = new Set(tokenransfers.map(item => item.mint))
-
-      const mintAddresses1 = new Set(transaction.accountData
-        .flatMap(item => item.tokenBalanceChanges)
-        .filter(item => item.userAccount === userAddress)
-        .map(item => item.mint)
-      )
-
-      const combinedMintAddresses = Array.from(new Set([...Array.from(mintAddresses), ...Array.from(mintAddresses1)]))
-
-      const metadataItems = await this.batchFetchTokenMetadata(combinedMintAddresses)
-      return metadataItems.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
-    }
-
-    /**
-     * Detects suspicious incoming token transfers by analyzing token metadata
-     * @param userAddress - The user's wallet address
-     * @param transaction - The Solana transaction to analyze
-     * @returns Promise<boolean> - True if suspicious incoming tokens are detected, false otherwise
-     */
-    private async detectSuspiciousIncomingTokens(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
-      const tokenTransferItems = transaction.tokenTransfers.filter(transfer => transfer.toUserAccount === userAddress)
-      if (tokenTransferItems.length === 0) {
-        return false
-      }
-      const uniqueMintAddresses = Array.from(new Set(tokenTransferItems.map(item => item.mint)))
-      const tokenMetadata = await this.batchFetchTokenMetadata(uniqueMintAddresses)
-      return tokenMetadata.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
-    }
-
-    /**
-     * Detects native SOL dusting attacks where multiple recipients receive identical small amounts
-     * @param userAddress - The user's wallet address
-     * @param transaction - The Solana transaction to analyze
-     * @returns Promise<boolean> - True if native dusting attack is detected, false otherwise
-     */
-    private async detectNativeDustingAttack(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
-      const { nativeTransfers } = transaction
-      
-      if (!nativeTransfers || nativeTransfers.length <= 1) {
-        return false
-      }
-      
-      const userTransfer = nativeTransfers.find(
-        transfer => transfer.toUserAccount === userAddress
-      )
-      
-      if (!userTransfer) {
-        return false
-      }
-      
-      const hasSameAmountAcrossAllTransfers = nativeTransfers.every(
-        transfer => transfer.amount === userTransfer.amount
-      )
-      
-      return hasSameAmountAcrossAllTransfers && isDust(userTransfer.amount)
-    }
+export class SolanaTransactionClient implements SolanaTransactionClientInterface{
 
     /**
      * Fetches detailed transaction data from Helius API
@@ -94,8 +13,7 @@ export class SolanaTransactionClient {
      * @returns Promise<SolanaTransaction> - The transaction details from Helius API
      */
     async fetchTransactionDetails(txHash: string): Promise<SolanaTransaction> {
-        let apiKey = "fffb28f8-e2a7-461b-926f-2036a0ccb73c";
-        const networkResponse = await fetch(`https://api.helius.xyz/v0/transactions?api-key=${apiKey}`, {
+        const networkResponse = await fetch(`https://api.helius.xyz/v0/transactions?api-key=${appConfig.heliumAPIKey}`, {
           method: "POST",
           headers: {
             'Content-Type': 'application/json',
@@ -106,67 +24,6 @@ export class SolanaTransactionClient {
         })
         let data: SolanaTransaction[] = await networkResponse.json()
         return data[0]
-    }
-
-    /**
-     * Fetches token metadata from Moralis API with caching
-     * @param contractAddress - The token contract/mint address
-     * @returns Promise<SolanaMetadata> - The token metadata including spam flags
-     */
-    private async fetchTokenMetadata(contractAddress: string): Promise<SolanaMetadata> {
-        if (this.metadataCache.has(contractAddress)) {
-            return this.metadataCache.get(contractAddress)!
-        }
-
-        let apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEwYTkwZGFjLTVlN2EtNGRjYy05MDk1LTQ5NmFlMDI3NzFkMyIsIm9yZ0lkIjoiMzY5ODAwIiwidXNlcklkIjoiMzgwMDYxIiwidHlwZUlkIjoiN2NkN2E2NDUtZGEzNC00ZmQ0LWFkZWQtNmEzNDQ1NzgxYTIyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MDM2NzA4MDAsImV4cCI6NDg1OTQzMDgwMH0.hTn488sD4BMlf7X6vtQL2onz953keGu3XH4u6NCn6nA' "
-        let response = await fetch(metadataURL(contractAddress), {
-            method: "GET",
-            headers: {
-                "X-API-Key": apiKey
-            }
-        })
-        const result = await response.json()
-        this.metadataCache.set(contractAddress, result)
-        return result
-    }
-
-    /**
-     * Fetches metadata for multiple tokens concurrently using Promise.allSettled
-     * @param mintAddresses - Array of token mint addresses to fetch metadata for
-     * @returns Promise<SolanaMetadata[]> - Array of successfully fetched metadata objects
-     */
-    private async batchFetchTokenMetadata(mintAddresses: string[]): Promise<SolanaMetadata[]> {
-      let responses = await Promise.allSettled(
-        mintAddresses.map(item => this.fetchTokenMetadata(item))
-      )
-      return responses.filter(item => item.status === "fulfilled").flatMap(item => item.value)
-    } 
-
-    /**
-     * Determines if the user is receiving funds (SOL, tokens, or NFTs) in the transaction
-     * @param transaction - The Solana transaction to analyze
-     * @param userAddress - The user's wallet address
-     * @returns Promise<boolean> - True if user is receiving funds, false otherwise
-     */
-    private async isUserReceivingFunds(transaction: SolanaTransaction, userAddress: string): Promise<boolean> {
-      const hasIncomingNativeTransfer = transaction.nativeTransfers.some(nativeTransfer => nativeTransfer.toUserAccount === userAddress)
-      const hasIncomingTokenTransfer = transaction.tokenTransfers.some(tokenTransfer => tokenTransfer.toUserAccount === userAddress)
-
-      const account = transaction.accountData.find(account => account.account === userAddress)
-      let isIncomingAccountNativeBalance = account && (account.nativeBalanceChange > 0) 
-
-      const tokenBalanceChanges = transaction.accountData.flatMap(account => account.tokenBalanceChanges)
-      const tokenBalanceChangeItem = tokenBalanceChanges.find(balanceChange => balanceChange.userAccount === userAddress)
-      const hasReceivedToken = tokenBalanceChangeItem && (parseInt(tokenBalanceChangeItem.rawTokenAmount.tokenAmount) > 0)
-
-      const nftOwners = transaction.events.compressed?.map(item => item.newLeafOwner)
-
-      const nativeInput = transaction.events.swap?.nativeInput
-      const hasIncomingNativeTransferEvent = nativeInput?.account === userAddress && parseInt(nativeInput.amount) > 0
-      const hasIncomingTokenTransferEvent  = transaction.events.swap?.tokenInputs.some(item => (item.userAccount === userAddress && parseInt(item.rawTokenAmount.tokenAmount) > 0))
-      const isNFTBeingReceived = nftOwners?.some(owner => owner === userAddress)
-      
-      return (hasIncomingNativeTransfer || hasIncomingTokenTransfer) || (isIncomingAccountNativeBalance ?? false) || (hasReceivedToken ?? false) || (isNFTBeingReceived ?? false) || hasIncomingNativeTransferEvent || (hasIncomingTokenTransferEvent ?? false)
     }
 }
 

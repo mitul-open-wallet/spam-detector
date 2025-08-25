@@ -1,10 +1,10 @@
 import { SolanaTransaction } from "../../models/solanaTransaction"
-import { SolanaMetadataFetcher } from "../solanaMetadataFetcher"
+import { SolanaMetadataFetcherInterface } from "../solanaMetadataFetcher"
 
 export class TokenSpamDetector {
-    private solanaMetaDataFetcher: SolanaMetadataFetcher
+    private solanaMetaDataFetcher: SolanaMetadataFetcherInterface
 
-    constructor(solanaMetaDataFetcher: SolanaMetadataFetcher) {
+    constructor(solanaMetaDataFetcher: SolanaMetadataFetcherInterface) {
         this.solanaMetaDataFetcher = solanaMetaDataFetcher
     }
 

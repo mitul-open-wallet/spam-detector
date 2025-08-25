@@ -1,18 +1,15 @@
 import { Request, Response, Router } from "express";
-import { request } from "http";
 import { SolanaTransactionAnalyzerFactory } from "../controllers/solanaTransactionsAnalyzerFactory";
-
-interface SolanaData {
-    description: string
-}
+import { schema } from "../schemas.ts/validationSchema";
+import validateWithZod from "../middleware/zodValidation";
 
 const router = Router();
+const transactionAnalyzer = SolanaTransactionAnalyzerFactory.create()
 
-router.post("/check", async (request: Request, response: Response) => {
+router.post("/check", validateWithZod(schema.solana), async (request: Request, response: Response) => {
     const { txHash, address } = request.body;
-    const transactionAnalyzer = SolanaTransactionAnalyzerFactory.create()
     const isSpam = await transactionAnalyzer.detectSpam(txHash, address)
-    response.status(200).send({ "isSpam": isSpam })
+    response.status(200).send({ isSpam: isSpam })
 })
 
 export default router;

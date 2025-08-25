@@ -6,6 +6,7 @@ dotenv.config()
 export const appConfig: AppConfig = (() => {
     return {
         port: process.env.PORT ?? "3000",
-        moralisAPIKey: process.env.MORALIS_API_KEY ?? ""
+        moralisAPIKey: process.env.MORALIS_API_KEY ?? "",
+        heliumAPIKey: process.env.HELIUM_API_KEY ?? "",
     }
 })()

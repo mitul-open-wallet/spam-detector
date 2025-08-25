@@ -15,7 +15,6 @@ export class NativeDustingAttackDetector {
         return amount <= dustThreshold
     }
 
-
     /**
      * Detects native SOL dusting attacks where multiple recipients receive identical small amounts
      * @param userAddress - The user's wallet address

@@ -1,10 +1,10 @@
 import { SolanaTransaction } from "../../models/solanaTransaction"
-import { SolanaMetadataFetcher } from "../solanaMetadataFetcher"
+import { SolanaMetadataFetcher, SolanaMetadataFetcherInterface } from "../solanaMetadataFetcher"
 
 export class SwapSpamDetector {
-    private solanaMetaDataFetcher: SolanaMetadataFetcher
+    private solanaMetaDataFetcher: SolanaMetadataFetcherInterface
 
-    constructor(solanaMetaDataFetcher: SolanaMetadataFetcher) {
+    constructor(solanaMetaDataFetcher: SolanaMetadataFetcherInterface) {
         this.solanaMetaDataFetcher = solanaMetaDataFetcher
     }
 
@@ -18,13 +18,13 @@ export class SwapSpamDetector {
       const tokenransfers = transaction.tokenTransfers.filter(transfer => (transfer.toUserAccount === userAddress || transfer.fromUserAccount === userAddress))
       const mintAddresses = new Set(tokenransfers.map(item => item.mint))
 
-      const mintAddresses1 = new Set(transaction.accountData
+      const mintAddressesFromAccountData = new Set(transaction.accountData
         .flatMap(item => item.tokenBalanceChanges)
         .filter(item => item.userAccount === userAddress)
         .map(item => item.mint)
       )
 
-      const combinedMintAddresses = Array.from(new Set([...Array.from(mintAddresses), ...Array.from(mintAddresses1)]))
+      const combinedMintAddresses = Array.from(new Set([...Array.from(mintAddresses), ...Array.from(mintAddressesFromAccountData)]))
 
       const metadataItems = await this.solanaMetaDataFetcher.batchFetchTokenMetadata(combinedMintAddresses)
       return metadataItems.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
