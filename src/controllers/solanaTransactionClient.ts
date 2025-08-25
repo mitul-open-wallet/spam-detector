@@ -1,0 +1,372 @@
+import { SolanaMetadata, SolanaTransaction } from "../models/solanaTransaction"
+
+export class SolanaTransactionClient {
+
+    // handle NFT
+    private metadataCache = new Map<string, SolanaMetadata>()
+
+    /**
+     * Analyzes compressed NFT transactions to detect spam based on collection metadata
+     * @param userAddress - The user's wallet address
+     * @param transaction - The Solana transaction to analyze
+     * @returns Promise<boolean> - True if spam NFT is detected, false otherwise
+     */
+    async analyzeNFTSpam(userAddress: string, transaction: SolanaTransaction) {
+      const nftMetadata = transaction.events.compressed?.flatMap(compressedNFTData => compressedNFTData.metadata.collection)
+      if (nftMetadata) {
+        const nftContractAddres = nftMetadata?.map(item => item.key)
+        const metadataItems = await this.batchFetchTokenMetadata(nftContractAddres)
+        return metadataItems.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
+      } else {
+        return false
+      }
+    }
+
+    /**
+     * Analyzes swap transactions to detect spam tokens involved in the swap
+     * @param userAddress - The user's wallet address
+     * @param transaction - The Solana transaction containing swap data
+     * @returns Promise<boolean> - True if spam tokens are detected in the swap, false otherwise
+     */
+    async analyzeSwapTransactionForSpam(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
+      const tokenransfers = transaction.tokenTransfers.filter(transfer => (transfer.toUserAccount === userAddress || transfer.fromUserAccount === userAddress))
+      const mintAddresses = new Set(tokenransfers.map(item => item.mint))
+
+      const mintAddresses1 = new Set(transaction.accountData
+        .flatMap(item => item.tokenBalanceChanges)
+        .filter(item => item.userAccount === userAddress)
+        .map(item => item.mint)
+      )
+
+      const combinedMintAddresses = Array.from(new Set([...Array.from(mintAddresses), ...Array.from(mintAddresses1)]))
+
+      const metadataItems = await this.batchFetchTokenMetadata(combinedMintAddresses)
+      return metadataItems.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
+    }
+
+    /**
+     * Detects suspicious incoming token transfers by analyzing token metadata
+     * @param userAddress - The user's wallet address
+     * @param transaction - The Solana transaction to analyze
+     * @returns Promise<boolean> - True if suspicious incoming tokens are detected, false otherwise
+     */
+    private async detectSuspiciousIncomingTokens(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
+      const tokenTransferItems = transaction.tokenTransfers.filter(transfer => transfer.toUserAccount === userAddress)
+      if (tokenTransferItems.length === 0) {
+        return false
+      }
+      const uniqueMintAddresses = Array.from(new Set(tokenTransferItems.map(item => item.mint)))
+      const tokenMetadata = await this.batchFetchTokenMetadata(uniqueMintAddresses)
+      return tokenMetadata.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
+    }
+
+    /**
+     * Detects native SOL dusting attacks where multiple recipients receive identical small amounts
+     * @param userAddress - The user's wallet address
+     * @param transaction - The Solana transaction to analyze
+     * @returns Promise<boolean> - True if native dusting attack is detected, false otherwise
+     */
+    private async detectNativeDustingAttack(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
+      const { nativeTransfers } = transaction
+      
+      if (!nativeTransfers || nativeTransfers.length <= 1) {
+        return false
+      }
+      
+      const userTransfer = nativeTransfers.find(
+        transfer => transfer.toUserAccount === userAddress
+      )
+      
+      if (!userTransfer) {
+        return false
+      }
+      
+      const hasSameAmountAcrossAllTransfers = nativeTransfers.every(
+        transfer => transfer.amount === userTransfer.amount
+      )
+      
+      return hasSameAmountAcrossAllTransfers && isDust(userTransfer.amount)
+    }
+
+    /**
+     * Fetches detailed transaction data from Helius API
+     * @param txHash - The transaction hash to fetch details for
+     * @returns Promise<SolanaTransaction> - The transaction details from Helius API
+     */
+    async fetchTransactionDetails(txHash: string): Promise<SolanaTransaction> {
+        let apiKey = "fffb28f8-e2a7-461b-926f-2036a0ccb73c";
+        const networkResponse = await fetch(`https://api.helius.xyz/v0/transactions?api-key=${apiKey}`, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transactions: [txHash]
+          })
+        })
+        let data: SolanaTransaction[] = await networkResponse.json()
+        return data[0]
+    }
+
+    /**
+     * Fetches token metadata from Moralis API with caching
+     * @param contractAddress - The token contract/mint address
+     * @returns Promise<SolanaMetadata> - The token metadata including spam flags
+     */
+    private async fetchTokenMetadata(contractAddress: string): Promise<SolanaMetadata> {
+        if (this.metadataCache.has(contractAddress)) {
+            return this.metadataCache.get(contractAddress)!
+        }
+
+        let apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEwYTkwZGFjLTVlN2EtNGRjYy05MDk1LTQ5NmFlMDI3NzFkMyIsIm9yZ0lkIjoiMzY5ODAwIiwidXNlcklkIjoiMzgwMDYxIiwidHlwZUlkIjoiN2NkN2E2NDUtZGEzNC00ZmQ0LWFkZWQtNmEzNDQ1NzgxYTIyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MDM2NzA4MDAsImV4cCI6NDg1OTQzMDgwMH0.hTn488sD4BMlf7X6vtQL2onz953keGu3XH4u6NCn6nA' "
+        let response = await fetch(metadataURL(contractAddress), {
+            method: "GET",
+            headers: {
+                "X-API-Key": apiKey
+            }
+        })
+        const result = await response.json()
+        this.metadataCache.set(contractAddress, result)
+        return result
+    }
+
+    /**
+     * Fetches metadata for multiple tokens concurrently using Promise.allSettled
+     * @param mintAddresses - Array of token mint addresses to fetch metadata for
+     * @returns Promise<SolanaMetadata[]> - Array of successfully fetched metadata objects
+     */
+    private async batchFetchTokenMetadata(mintAddresses: string[]): Promise<SolanaMetadata[]> {
+      let responses = await Promise.allSettled(
+        mintAddresses.map(item => this.fetchTokenMetadata(item))
+      )
+      return responses.filter(item => item.status === "fulfilled").flatMap(item => item.value)
+    } 
+
+    /**
+     * Determines if the user is receiving funds (SOL, tokens, or NFTs) in the transaction
+     * @param transaction - The Solana transaction to analyze
+     * @param userAddress - The user's wallet address
+     * @returns Promise<boolean> - True if user is receiving funds, false otherwise
+     */
+    private async isUserReceivingFunds(transaction: SolanaTransaction, userAddress: string): Promise<boolean> {
+      const hasIncomingNativeTransfer = transaction.nativeTransfers.some(nativeTransfer => nativeTransfer.toUserAccount === userAddress)
+      const hasIncomingTokenTransfer = transaction.tokenTransfers.some(tokenTransfer => tokenTransfer.toUserAccount === userAddress)
+
+      const account = transaction.accountData.find(account => account.account === userAddress)
+      let isIncomingAccountNativeBalance = account && (account.nativeBalanceChange > 0) 
+
+      const tokenBalanceChanges = transaction.accountData.flatMap(account => account.tokenBalanceChanges)
+      const tokenBalanceChangeItem = tokenBalanceChanges.find(balanceChange => balanceChange.userAccount === userAddress)
+      const hasReceivedToken = tokenBalanceChangeItem && (parseInt(tokenBalanceChangeItem.rawTokenAmount.tokenAmount) > 0)
+
+      const nftOwners = transaction.events.compressed?.map(item => item.newLeafOwner)
+
+      const nativeInput = transaction.events.swap?.nativeInput
+      const hasIncomingNativeTransferEvent = nativeInput?.account === userAddress && parseInt(nativeInput.amount) > 0
+      const hasIncomingTokenTransferEvent  = transaction.events.swap?.tokenInputs.some(item => (item.userAccount === userAddress && parseInt(item.rawTokenAmount.tokenAmount) > 0))
+      const isNFTBeingReceived = nftOwners?.some(owner => owner === userAddress)
+      
+      return (hasIncomingNativeTransfer || hasIncomingTokenTransfer) || (isIncomingAccountNativeBalance ?? false) || (hasReceivedToken ?? false) || (isNFTBeingReceived ?? false) || hasIncomingNativeTransferEvent || (hasIncomingTokenTransferEvent ?? false)
+    }
+}
+
+/**
+ * Determines if a SOL amount is considered "dust" (very small amount used in dusting attacks)
+ * @param amount - The SOL amount to check (in lamports)
+ * @returns boolean - True if the amount is considered dust, false otherwise
+ */
+function isDust(amount: number): boolean {
+  const SOLANA_DECIMALS = 9
+  const DUST_THRESHOLD_EXPONENT = 7
+  const dustThreshold = Math.pow(10, SOLANA_DECIMALS - DUST_THRESHOLD_EXPONENT)
+  
+  return amount <= dustThreshold
+}
+
+// look into token transfer and investigate the mint address
+
+/**
+ * Generates the Moralis API URL for fetching token metadata
+ * @param mintAddress - The token mint address
+ * @returns string - The complete API URL for fetching metadata
+ */
+const metadataURL = (mintAddress: string) => {
+  return `https://solana-gateway.moralis.io/token/mainnet/${mintAddress}/metadata`
+}
+
+/*
+
+private async fetchUserTransactionHistory(address: string): Promise<SolanaTransaction[]> {
+        let apiKey = "fffb28f8-e2a7-461b-926f-2036a0ccb73c";
+        const networkResponse = await fetch(`https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}`, {
+          method: "GET"
+        })
+        let data: SolanaTransaction[] = await networkResponse.json()
+        return data
+    }
+
+curl --request GET \
+     --url 'https://solana-gateway.moralis.io/token/mainnet/SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt/metadata' \
+     --header 'accept: application/json' \
+     --header 'X-API-Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEwYTkwZGFjLTVlN2EtNGRjYy05MDk1LTQ5NmFlMDI3NzFkMyIsIm9yZ0lkIjoiMzY5ODAwIiwidXNlcklkIjoiMzgwMDYxIiwidHlwZUlkIjoiN2NkN2E2NDUtZGEzNC00ZmQ0LWFkZWQtNmEzNDQ1NzgxYTIyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MDM2NzA4MDAsImV4cCI6NDg1OTQzMDgwMH0.hTn488sD4BMlf7X6vtQL2onz953keGu3XH4u6NCn6nA' 
+*/
+
+/*
+what to block ?
+
+// Incoming transactions which have been involved in the dusting attacks, in such
+transactions sender sends lot of small amount of native tokens or even stablecoins to various recipients
+
+// Token which are categorised as spam or that have a low reputation
+
+Types of Dusting Attacks on Solana
+1. Account Dusting (Traditional Spam)
+Scammers send out micro-transactions (often less than 0.0001 SOL) to thousands of addresses. These often include spam messages, scam links, or misleading asset names. MediumCointelegraph
+Detection criteria:
+
+Transactions < 0.0001 SOL flagged as dusting <h1>🧹 Unmasking the Spam: Detecting Account Dusting and Address Poisoning on Solana</h1> | by Albert Adekanye | Apr, 2025 | Medium
+Transactions where all transferred amounts are less than 0.000005 SOL—the minimum gas fee required to send a transaction Solana Account Dusting & Address Poisoning
+Mass distribution to thousands of wallets simultaneously
+
+2. Domain-Based Dusting
+Domain-based dusting involves spamming wallets with uneconomical micro-transactions from vanity-named addresses (e.g., flip.gg, casino.sol). These are designed to grab user attention in wallet history views and redirect them to off-chain scams, gambling sites, or phishing pages. What Are Address Poisoning Attacks? | Transak
+Detection signs:
+
+Sender addresses with vanity domains (.sol, .gg, .fun extensions)
+Promoting gambling sites, casino games, or suspicious domains Solana Phishing Scam Research Report | Bitget News
+Over the past 14 days, we identified 40 active wallets engaging in domain-based dusting campaigns on Solana. Together, these wallets have targeted an estimated 6.2 million unique addresses What Are Address Poisoning Attacks? | Transak
+
+3. Address Poisoning
+Attackers create wallet addresses that closely mimic a user's own, then send a small transaction. MediumCointelegraph
+Detection methods:
+
+If sender and recipient have the same first 5 characters, flag as poisoning <h1>🧹 Unmasking the Spam: Detecting Account Dusting and Address Poisoning on Solana</h1> | by Albert Adekanye | Apr, 2025 | Medium
+Addresses generated by the attacker that are similar to the fake system program address as a phishing address, making the user mistakenly believe that the phishing address is a trusted address Solana (SOL) Users Targeted in New Address Poisoning Attack: Details
+Wallets that share more than 4 matching characters (front and back) with a recent address are statistically impossible to occur naturally What Are Address Poisoning Attacks? | Transak
+
+4. NFT-Based Dusting
+Solana users often receive unsolicited NFTs containing external links or coded instructions. Engaging with these NFTs can result in unauthorized access to wallet functions or approval of contracts designed to steal assets. Dusting Attacks
+Warning signs:
+
+Unexpected NFT airdrops with suspicious names
+NFTs containing external links or QR codes
+Phisher airdrops NFTs associated with phishing links to users, and tricks users into clicking on the links and signing malicious transactions Solana (SOL) Users Targeted in New Address Poisoning Attack: Details
+
+5. Token-Based Dusting
+Ethereum users have repeatedly been targeted with fake tokens like "UNI-V2," which appear to be legitimate. Clicking on these tokens or attempting to interact with them led users to malicious dApps designed to exploit token approval permissions and drain wallets. Dusting Attacks
+Detection Tools and APIs
+Automated Detection Systems
+We have created detection APIs that can identify dusting wallets and transactions in real-time Spam to Scams: Dirty Dev Tricks with Dusting & Address Poisoning on Solana | by Rahulol | Medium:
+
+Wallet Detection API: Input a wallet address to check if it's being used for dusting
+Transaction Analysis API: Input a transaction to determine if it's dust/spam or legitimate
+Real-time Filtering: Integration for wallets and explorers to automatically hide spam
+
+Detection Heuristics
+Detection Heuristics:
+
+Transactions < 0.0001 SOL flagged as dusting
+If sender and recipient have the same first 5 characters, flag as poisoning
+If either or both flags are triggered, the transaction is marked as suspicious <h1>🧹 Unmasking the Spam: Detecting Account Dusting and Address Poisoning on Solana</h1> | by Albert Adekanye | Apr, 2025 | Medium
+
+Scale of the Problem
+Our analysis revealed widespread account dusting and address poisoning activity across the Solana ecosystem:
+
+Over 3.4 million distinct addresses have received at least one transaction matching our dusting criteria
+Approximately 124,000 addresses exhibit strong signals of being used for address poisoning
+The average dust amount sent was 0.00058 SOL, intentionally below attention thresholds Project Overview: Solana Account Dusting & Address Poisoning Analysis
+
+Protection Strategies
+
+Never interact with dust transactions - Don't attempt to move or spend tiny amounts
+Use wallet filtering features - Many wallets now offer spam filtering
+Verify addresses carefully - Always double-check recipient addresses character by character
+Ignore suspicious NFTs - Don't click on unexpected NFT airdrops or their associated links
+Use address books - Save trusted addresses in your wallet's address book
+Monitor transaction timing - Attacks frequently occurred shortly after legitimate high-value transactions, when users might be expected to conduct follow-up transactions Project Overview: Solana Account Dusting & Address Poisoning Analysis
+
+The sophistication of these attacks is increasing, with over $3.1 million stolen in one month using address poisoning <h1>🧹 Unmasking the Spam: Detecting Account Dusting and Address Poisoning on Solana</h1> | by Albert Adekanye | Apr, 2025 | Medium, making detection and prevention tools essential for Solana users.
+*/
+
+/*
+  Suggested Structure
+
+  1. SolanaApiClient
+  - Handle all external API calls to Helius and Moralis
+  - Manage API keys and request formatting
+  - Handle rate limiting and error handling
+
+  2. TokenMetadataService
+  - Fetch and cache token metadata
+  - Handle batch metadata requests
+  - Manage metadata cache lifecycle
+
+  3. SpamDetectionEngine
+  - Core spam detection algorithms
+  - Coordinate different spam detection strategies
+  - Return unified spam risk scores
+
+  4. DustingAttackDetector
+  - Specifically detect native SOL dusting attacks
+  - Handle dust threshold calculations
+  - Analyze transaction patterns
+
+  5. TokenSpamDetector
+  - Detect suspicious token transfers
+  - Analyze token metadata for spam indicators
+  - Handle token-specific spam patterns
+
+  6. SwapTransactionAnalyzer
+  - Analyze swap transactions for spam
+  - Handle complex token transfer patterns in swaps
+  - Detect suspicious swap behavior
+
+  7. TransactionAnalyzer (Main orchestrator)
+  - Coordinate all detection services
+  - Determine if a transaction is incoming/outgoing
+  - Provide unified interface for spam analysis
+
+    Main Flow Coordination
+
+  1. Initial Analysis
+  - Receive transaction + user address
+  - Use internal logic to determine transaction type (incoming/outgoing/swap)
+  - Route to appropriate detection strategy based on transaction type
+
+  2. Dependency Injection
+  TransactionAnalyzer constructor receives:
+  - SolanaApiClient
+  - TokenMetadataService
+  - DustingAttackDetector
+  - TokenSpamDetector
+  - SwapTransactionAnalyzer
+
+  3. Orchestration Logic
+  - For incoming transactions:
+    - Call DustingAttackDetector.analyze()
+    - Call TokenSpamDetector.analyze()
+    - Aggregate results into spam risk score
+  - For swap transactions:
+    - Call SwapTransactionAnalyzer.analyze()
+    - May also call token spam detection for involved tokens
+  - For outgoing transactions:
+    - Usually skip spam detection (legitimate user action)
+
+  4. Data Flow Management
+  - TransactionAnalyzer requests transaction details via SolanaApiClient
+  - Passes raw transaction data to relevant detectors
+  - Each detector can request metadata via TokenMetadataService
+  - TransactionAnalyzer aggregates all detection results
+
+  5. Result Aggregation
+  - Collect spam scores from different detectors
+  - Apply weighting logic (dusting might be 70% confidence, token spam 30%)
+  - Return unified SpamAnalysisResult with confidence score and reasons
+
+  6. Caching Strategy
+  - TransactionAnalyzer doesn't cache - delegates to appropriate services
+  - TokenMetadataService handles metadata caching
+  - SolanaApiClient could cache transaction data
+
+  This way, TransactionAnalyzer focuses purely on orchestration logic while each specialized class handles its specific domain expertise.
+*/
