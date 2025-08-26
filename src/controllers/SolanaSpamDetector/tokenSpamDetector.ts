@@ -23,6 +23,4 @@ export class TokenSpamDetector {
       const tokenMetadata = await this.solanaMetaDataFetcher.batchFetchTokenMetadata(uniqueMintAddresses)
       return tokenMetadata.some(metadata => metadata.possibleSpam || metadata.isVerifiedContract === false)
     }
-
-
 }

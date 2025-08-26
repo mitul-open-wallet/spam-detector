@@ -8,7 +8,7 @@ const transactionAnalyzer = SolanaTransactionAnalyzerFactory.create()
 
 router.post("/check", validateWithZod(schema.solana), async (request: Request, response: Response) => {
     const { txHash, address } = request.body;
-    const isSpam = await transactionAnalyzer.detectSpam(txHash, address)
+    const isSpam = await transactionAnalyzer.isSpam(txHash, address)
     response.status(200).send({ isSpam: isSpam })
 })
 

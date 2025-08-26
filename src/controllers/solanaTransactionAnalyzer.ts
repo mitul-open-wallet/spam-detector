@@ -47,18 +47,25 @@ export class SolanaTransactionAnalyzer {
         return (hasIncomingNativeTransfer || hasIncomingTokenTransfer) || (isIncomingAccountNativeBalance ?? false) || (hasReceivedToken ?? false) || (isNFTBeingReceived ?? false) || hasIncomingNativeTransferEvent || (hasIncomingTokenTransferEvent ?? false)
     }
 
-    async detectSpam(txHash: string, userAddress: string): Promise<boolean> {
-        const solanaTransaction = await this.solanaTransactionClient.fetchTransactionDetails(txHash)
-        const isUserReceivingFunds = await this.isUserReceivingFunds(solanaTransaction, userAddress)
-        if (!isUserReceivingFunds) {
-            return false
+    async isSpam(txHash: string, userAddress: string): Promise<boolean> {
+        try {
+            const solanaTransaction = await this.solanaTransactionClient.fetchTransactionDetails(txHash)
+            const isUserReceivingFunds = await this.isUserReceivingFunds(solanaTransaction, userAddress)
+            if (!isUserReceivingFunds) {
+                return false
+            }
+            const results = await Promise.all([
+                this.nativeDustingAttackDetector.detectNativeDustingAttack(userAddress, solanaTransaction),
+                this.tokenSpamDetector.detectSuspiciousIncomingTokens(userAddress, solanaTransaction),
+                this.swapSpamDetector.analyzeSwapTransactionForSpam(userAddress, solanaTransaction),
+                this.nftSpamDetector.analyzeNFTSpam(userAddress, solanaTransaction)
+            ])
+            return results.some(item => item)
+        } catch {
+            console.log("error")
+            const error = new Error(`Transaction with hash ${txHash} not found for address ${userAddress}`)
+            error.name = 'TRANSACTION_NOT_FOUND'
+            throw error
         }
-        const results = await Promise.all([
-            this.nativeDustingAttackDetector.detectNativeDustingAttack(userAddress, solanaTransaction),
-            this.tokenSpamDetector.detectSuspiciousIncomingTokens(userAddress, solanaTransaction),
-            this.swapSpamDetector.analyzeSwapTransactionForSpam(userAddress, solanaTransaction),
-            this.nftSpamDetector.analyzeNFTSpam(userAddress, solanaTransaction)
-        ])
-        return results.some(item => item)
     }  
 }

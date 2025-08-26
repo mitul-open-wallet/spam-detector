@@ -22,7 +22,6 @@ export class NativeDustingAttackDetector {
      * @returns Promise<boolean> - True if native dusting attack is detected, false otherwise
      */
     async detectNativeDustingAttack(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
-    console.log(JSON.stringify(transaction))
       const { nativeTransfers } = transaction
       
       if (!nativeTransfers || nativeTransfers.length <= 1) {
