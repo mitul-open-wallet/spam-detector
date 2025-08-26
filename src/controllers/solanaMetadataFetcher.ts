@@ -1,4 +1,5 @@
 import { appConfig } from "../config"
+import { AppConfig } from "../config/config.interface"
 import { SolanaMetadata } from "../models/solanaTransaction"
 
 
@@ -11,11 +12,13 @@ export class SolanaMetadataFetcher implements SolanaMetadataFetcherInterface {
 
     private metadataCache = new Map<string, SolanaMetadata>()
 
+    constructor(private appConfig: AppConfig) {}
+
     async fetchTokenMetadata(contractAddress: string): Promise<SolanaMetadata> {
         if (this.metadataCache.has(contractAddress)) {
             return this.metadataCache.get(contractAddress)!
         }
-        const url = `https://solana-gateway.moralis.io/token/mainnet/${contractAddress}/metadata`
+        const url = appConfig.solanaMetadataURL(contractAddress)
         let response = await fetch(url, {
             method: "GET",
             headers: {

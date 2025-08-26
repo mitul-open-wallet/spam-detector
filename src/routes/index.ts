@@ -12,6 +12,7 @@ router.use('/threatDetection', threatDetection);
 router.use('/accidentalTransfer', accidentalTransfer);
 router.use('/infections', infections);
 router.use('/spam', spam);
+
 router.use('/solana', solana)
 
 export default router;

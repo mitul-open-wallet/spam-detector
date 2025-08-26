@@ -1,3 +1,5 @@
+import { appConfig } from "../config"
+import { AppConfig } from "../config/config.interface"
 import { SolanaMetadataFetcher, SolanaMetadataFetcherInterface } from "./solanaMetadataFetcher"
 import { NativeDustingAttackDetector } from "./SolanaSpamDetector/nativeDustingAttackDetector"
 import { NFTSpamDetector } from "./SolanaSpamDetector/nftSpamDetector"
@@ -14,8 +16,8 @@ interface DetectorDependencies {
 export class SolanaTransactionAnalyzerFactory {
     static create(dependencies: DetectorDependencies = {}): SolanaTransactionAnalyzer {
         const {
-            solanaTransactionClient = new SolanaTransactionClient(),
-            metadataFetcher = new SolanaMetadataFetcher()
+            solanaTransactionClient = new SolanaTransactionClient(appConfig),
+            metadataFetcher = new SolanaMetadataFetcher(appConfig)
         } = dependencies
 
         return new SolanaTransactionAnalyzer(
