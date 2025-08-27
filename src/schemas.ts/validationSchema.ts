@@ -1,5 +1,23 @@
 import z from "zod";
 
+// More specific regex patterns for different lengths
+const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const SOLANA_SIGNATURE_REGEX = /^[1-9A-HJ-NP-Za-km-z]{87,88}$/;
+
+const solanaAddress = z.string()
+.min(1, "must not be empty")
+.regex(SOLANA_ADDRESS_REGEX, "length should be between 32 and 44 chars and must be base58 encoded")
+.refine(address => address.length >=32 && address.length <= 44, {
+    message: "Must be between 32 and 44 characters"
+})
+
+const solanaSignature = z.string()
+.min(1, "must not be empty")
+.regex(SOLANA_SIGNATURE_REGEX, "length should be between 87 and 88 chars and must be base58 encoded")
+.refine(address => address.length >=87 && address.length <= 88, {
+    message: "Must be between 87 and 88 characters"
+})
+
 const ethereumAddress = z.string()
 .min(1, "string must not be empty")
 .regex(/^0x[a-fA-F0-9]{40}$/, "Must be a valid Ethereum address (0x followed by 40 hex characters)")
@@ -11,6 +29,12 @@ const transactionHash = z.string()
 .length(66, "ethereum address must have proper length")
 
 export const schema = {
+
+    solana: z.object({
+        txHash: solanaSignature,
+        address: solanaAddress
+    }),
+    
     spam: z.object({
         txHash: transactionHash,
         address: ethereumAddress

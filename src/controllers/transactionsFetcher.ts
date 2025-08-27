@@ -1,5 +1,5 @@
 import Moralis from "moralis";
-import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
+import EvmChain, { EvmAddress, getTokenMetadataOperation } from "@moralisweb3/common-evm-utils";
 import { BaseTransactionItem, Blockchain, BlockchainTransactions, ContractItem, NativeOrContract } from "../models/blockchian";
 import { appConfig } from "../config";
 
@@ -284,5 +284,7 @@ export class TransactionsFetcher {
             cursor = result.response.cursor;
         } while (cursor);
         return { blockchain: blockchain, transactions: walletTransactions }
+        
     }
 }
+
