@@ -9,18 +9,12 @@ export const appConfig: AppConfig = (() => {
         moralisAPIKey: process.env.MORALIS_API_KEY ?? "",
         heliumAPIKey: process.env.HELIUM_API_KEY ?? "",
         solanaMetadataURL: (contractAddress: string) => {
-            var metadataURL = process.env.SOLANA_METADATA_URL
-            if (metadataURL) {
-                return metadataURL.replace(`{contractAddress}`, contractAddress)
-            }
-            return ""
+            const solanaMetadataURL = "https://solana-gateway.moralis.io/token/mainnet/${contractAddress}/metadata"
+            return solanaMetadataURL.replace(`{contractAddress}`, contractAddress)
         },
         heliumBaseURL: (apiKey: string) => {
-            var baseURL = process.env.HELIUM_BASE_URL ?? ""
-            if (baseURL) {
-               return baseURL.replace(`{heliumAPIKey}`, apiKey)
-            }
-            return ""
+            const baseURL = "https://api.helius.xyz/v0/transactions?api-key=${heliumAPIKey}"
+            return baseURL.replace(`{heliumAPIKey}`, apiKey)
         }
     }
 })()

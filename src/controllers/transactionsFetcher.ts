@@ -282,7 +282,7 @@ export class TransactionsFetcher {
                 break;
             }
             cursor = result.response.cursor;
-        } while (cursor !== undefined);
+        } while (cursor);
         return { blockchain: blockchain, transactions: walletTransactions }
         
     }
