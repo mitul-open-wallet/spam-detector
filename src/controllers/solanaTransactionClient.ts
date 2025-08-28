@@ -1,9 +1,11 @@
+import { da } from "zod/v4/locales/index.cjs"
 import { appConfig } from "../config"
 import { AppConfig } from "../config/config.interface"
 import { SolanaMetadata, SolanaTransaction } from "../models/solanaTransaction"
 
 export interface SolanaTransactionClientInterface {
     fetchTransactionDetails(txHash: string): Promise<SolanaTransaction>
+    batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]>
 }
 
 export class SolanaTransactionClient implements SolanaTransactionClientInterface {
@@ -28,5 +30,20 @@ export class SolanaTransactionClient implements SolanaTransactionClientInterface
         })
         let data: SolanaTransaction[] = await networkResponse.json()
         return data[0]
+    }
+
+    async batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]> {
+      const url = appConfig.heliumBaseURL(appConfig.heliumAPIKey)
+        const networkResponse = await fetch(url, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transactions: txHashes
+          })
+        })
+        let data: SolanaTransaction[] = await networkResponse.json()
+        return data
     }
 }
