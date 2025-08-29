@@ -1,7 +1,6 @@
-import { da } from "zod/v4/locales/index.cjs"
 import { appConfig } from "../config"
 import { AppConfig } from "../config/config.interface"
-import { SolanaMetadata, SolanaTransaction } from "../models/solanaTransaction"
+import { SolanaTransaction } from "../models/solanaTransaction"
 
 export interface SolanaTransactionClientInterface {
     fetchTransactionDetails(txHash: string): Promise<SolanaTransaction>
@@ -12,28 +11,8 @@ export class SolanaTransactionClient implements SolanaTransactionClientInterface
 
     constructor(private appConfig: AppConfig) {}
 
-    /**
-     * Fetches detailed transaction data from Helius API
-     * @param txHash - The transaction hash to fetch details for
-     * @returns Promise<SolanaTransaction> - The transaction details from Helius API
-     */
-    async fetchTransactionDetails(txHash: string): Promise<SolanaTransaction> {
-        const url = appConfig.heliumBaseURL(appConfig.heliumAPIKey)
-        const networkResponse = await fetch(url, {
-          method: "POST",
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transactions: [txHash]
-          })
-        })
-        let data: SolanaTransaction[] = await networkResponse.json()
-        return data[0]
-    }
-
-    async batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]> {
-      const url = appConfig.heliumBaseURL(appConfig.heliumAPIKey)
+    private async fetchTransaction(txHashes: string[]): Promise<SolanaTransaction[]> {
+      const url = appConfig.heliumBaseURL(this.appConfig.heliumAPIKey)
         const networkResponse = await fetch(url, {
           method: "POST",
           headers: {
@@ -43,7 +22,20 @@ export class SolanaTransactionClient implements SolanaTransactionClientInterface
             transactions: txHashes
           })
         })
-        let data: SolanaTransaction[] = await networkResponse.json()
-        return data
+        return await networkResponse.json()
+    }
+
+    /**
+     * Fetches detailed transaction data from Helius API
+     * @param txHash - The transaction hash to fetch details for
+     * @returns Promise<SolanaTransaction> - The transaction details from Helius API
+     */
+    async fetchTransactionDetails(txHash: string): Promise<SolanaTransaction> {
+        let data: SolanaTransaction[] = await this.fetchTransaction([txHash])
+        return data[0]
+    }
+
+    async batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]> {
+      return await this.fetchTransaction(txHashes)
     }
 }

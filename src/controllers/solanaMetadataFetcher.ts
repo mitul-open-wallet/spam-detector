@@ -22,7 +22,7 @@ export class SolanaMetadataFetcher implements SolanaMetadataFetcherInterface {
         let response = await fetch(url, {
             method: "GET",
             headers: {
-                "X-API-Key": appConfig.moralisAPIKey
+                "X-API-Key": this.appConfig.moralisAPIKey
             }
         })
         const result = await response.json()
