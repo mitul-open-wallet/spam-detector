@@ -5,6 +5,15 @@ import { SwapSpamDetector } from "./SolanaSpamDetector/swapSpamDetector";
 import { TokenSpamDetector } from "./SolanaSpamDetector/tokenSpamDetector";
 import { SolanaTransaction } from "../models/solanaTransaction";
 
+
+export interface SpamReport {
+    found: {
+        txHash: string
+        isSpam: boolean
+    }[],
+    notDetermined?: string[]
+}
+
 export class SolanaTransactionAnalyzer {
     solanaTransactionClient: SolanaTransactionClientInterface
     nativeDustingAttackDetector: NativeDustingAttackDetector
@@ -50,17 +59,9 @@ export class SolanaTransactionAnalyzer {
     async isSpam(txHash: string, userAddress: string): Promise<boolean> {
         try {
             const solanaTransaction = await this.solanaTransactionClient.fetchTransactionDetails(txHash)
-            const isUserReceivingFunds = await this.isUserReceivingFunds(solanaTransaction, userAddress)
-            if (!isUserReceivingFunds) {
-                return false
-            }
-            const results = await Promise.all([
-                this.nativeDustingAttackDetector.detectNativeDustingAttack(userAddress, solanaTransaction),
-                this.tokenSpamDetector.detectSuspiciousIncomingTokens(userAddress, solanaTransaction),
-                this.swapSpamDetector.analyzeSwapTransactionForSpam(userAddress, solanaTransaction),
-                this.nftSpamDetector.analyzeNFTSpam(userAddress, solanaTransaction)
-            ])
-            return results.some(item => item)
+            const isSpam = await this.categosriedAsSpam(solanaTransaction, userAddress)
+            console.log(`Solana: Tx Hash: ${txHash} user address" ${userAddress} isSpam: ${isSpam}`)
+            return isSpam
         } catch {
             console.log("error")
             const error = new Error(`Transaction with hash ${txHash} not found for address ${userAddress}`)
@@ -68,4 +69,37 @@ export class SolanaTransactionAnalyzer {
             throw error
         }
     }  
+
+    async isSpamBulk(txHashes: string[], userAddress: string): Promise<SpamReport> {
+        const solanaTransactions = await this.solanaTransactionClient.batchFetchTransactions(txHashes)
+        const spamList = await Promise.all(
+            solanaTransactions.map(async item => {
+                return {
+                    txHash: item.signature,
+                    isSpam: await this.categosriedAsSpam(item, userAddress)
+                }
+            }
+        )
+        )
+        const found = spamList.map(item => item.txHash)
+        const undetermined = txHashes.filter(item => !found.includes(item))
+        return {
+            found: spamList,
+            notDetermined: undetermined
+        }
+    }
+
+    private async categosriedAsSpam(solanaTransaction: SolanaTransaction, userAddress: string) {
+        const isUserReceivingFunds = await this.isUserReceivingFunds(solanaTransaction, userAddress)
+        if (!isUserReceivingFunds) {
+            return false
+        }
+        const results = await Promise.all([
+            this.nativeDustingAttackDetector.detectNativeDustingAttack(userAddress, solanaTransaction),
+            this.tokenSpamDetector.detectSuspiciousIncomingTokens(userAddress, solanaTransaction),
+            this.swapSpamDetector.analyzeSwapTransactionForSpam(userAddress, solanaTransaction),
+            this.nftSpamDetector.analyzeNFTSpam(userAddress, solanaTransaction)
+        ])
+        return results.some(item => item)
+    }
 }

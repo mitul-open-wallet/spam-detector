@@ -30,6 +30,11 @@ const transactionHash = z.string()
 
 export const schema = {
 
+    solanaBatch: z.object({
+        txHashes: z.array(solanaSignature).min(1, "At least one transaction hash is required"),
+        address: solanaAddress
+    }),
+
     solana: z.object({
         txHash: solanaSignature,
         address: solanaAddress

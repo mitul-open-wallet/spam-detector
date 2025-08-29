@@ -1,14 +1,29 @@
 import { appConfig } from "../config"
 import { AppConfig } from "../config/config.interface"
-import { SolanaMetadata, SolanaTransaction } from "../models/solanaTransaction"
+import { SolanaTransaction } from "../models/solanaTransaction"
 
 export interface SolanaTransactionClientInterface {
     fetchTransactionDetails(txHash: string): Promise<SolanaTransaction>
+    batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]>
 }
 
 export class SolanaTransactionClient implements SolanaTransactionClientInterface {
 
     constructor(private appConfig: AppConfig) {}
+
+    private async fetchTransaction(txHashes: string[]): Promise<SolanaTransaction[]> {
+      const url = appConfig.heliumBaseURL(this.appConfig.heliumAPIKey)
+        const networkResponse = await fetch(url, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transactions: txHashes
+          })
+        })
+        return await networkResponse.json()
+    }
 
     /**
      * Fetches detailed transaction data from Helius API
@@ -16,17 +31,11 @@ export class SolanaTransactionClient implements SolanaTransactionClientInterface
      * @returns Promise<SolanaTransaction> - The transaction details from Helius API
      */
     async fetchTransactionDetails(txHash: string): Promise<SolanaTransaction> {
-        const url = appConfig.heliumBaseURL(appConfig.heliumAPIKey)
-        const networkResponse = await fetch(url, {
-          method: "POST",
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transactions: [txHash]
-          })
-        })
-        let data: SolanaTransaction[] = await networkResponse.json()
+        let data: SolanaTransaction[] = await this.fetchTransaction([txHash])
         return data[0]
+    }
+
+    async batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]> {
+      return await this.fetchTransaction(txHashes)
     }
 }
