@@ -5,7 +5,8 @@ import { NativeOrContract } from "../models/blockchian";
 
 interface ThreatSummary {
     explainer: string,
-    profile: ThreatProfile[]
+    threatItems: ThreatItem[],
+    isSafe: boolean
 }
 
 interface ThreatProfile {
@@ -151,7 +152,8 @@ export class ThreatDetectionEngine {
         if (infectedTransactions.length !== 0) {
             return {
                 explainer: `${targetAddress} has been involved in address poisoning attempt, do not send funds to this address`,
-                profile: []
+                threatItems: [],
+                isSafe: false
             }
         }
 
@@ -168,13 +170,14 @@ export class ThreatDetectionEngine {
         if (found) {
             return {
                 explainer: "Since you have transacted with this address before, it appears safe to send funds to this address at this time",
-                profile: []
+                threatItems: [],
+                isSafe: true
             }
         }
 
         let threatProfiles: ThreatProfile[] = []
         
-        validTransactions.forEach(transaction => {
+        validTransactions.forEach(async transaction => {
             let subject: EvmAddress | undefined
 
             if (transaction.direction === "send") {
@@ -191,8 +194,7 @@ export class ThreatDetectionEngine {
             if (subjectEthereumAddress !== lowerCaseTragetAddress) {
                 let sourceAddress = subjectEthereumAddress
 
-                let threats = this.analyseThreat(sourceAddress, lowerCaseTragetAddress)
-                .filter(item => item !== undefined)
+                let threats = await this.analyseThreat(sourceAddress, lowerCaseTragetAddress)
 
                 if (threats.length !== 0) {
                     threatProfiles.push({
@@ -203,20 +205,31 @@ export class ThreatDetectionEngine {
                 }
             }
         })
-        return {
-            explainer: "Target addresses are fraudulent addresses that are crafted to appear nearly identical to valid addresses from the user's transaction history, typically differing by only a few characters to deceive users into sending funds to the wrong recipient.",
-            profile: threatProfiles
+        if (threatProfiles.length !== 0) {
+            return {
+                explainer: "Target addresses are fraudulent addresses that are crafted to appear nearly identical to valid addresses from the user's transaction history, typically differing by only a few characters to deceive users into sending funds to the wrong recipient.",
+                threatItems: threatProfiles.flatMap(item => item.threatItems),
+                isSafe: false
+            }
+        } else {
+            return {
+                explainer: `It's safe to transcast with ${targetAddress}`,
+                threatItems: [],
+                isSafe: true
+            }
         }
     }
 
-    private analyseThreat(source: string, destination: string): ThreatItem[] {
-        return [  
+    private async analyseThreat(source: string, destination: string): Promise<ThreatItem[]> {
+        let result = await Promise.all([  
             this.algorithm.totalCharacterMatch(source, destination),
             this.algorithm.weightedMatch(source, destination),
             this.algorithm.detectVisualTricks(source, destination),
             this.algorithm.computePrefixSuffixMatch(source, destination),
             this.algorithm.computeLongestMatch(source, destination)
-        ].map(item => {
+        ])
+        
+        return result.map(item => {
             return this.detectThreatBasedOnThreshold(item)
         })
         .filter(item => {
