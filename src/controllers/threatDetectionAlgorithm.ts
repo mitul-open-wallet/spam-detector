@@ -83,7 +83,7 @@ export class AlgorithmController {
      * @returns Object containing source address, destination address, prefix match percentage, and suffix match percentage
      * @throws Error if addresses have different lengths
      */
-    computePrefixSuffixMatch(subject1: string, subject2: string): PrefixSuffixMatchPercentage {
+    async computePrefixSuffixMatch(subject1: string, subject2: string): Promise<PrefixSuffixMatchPercentage> {
         this.preCheck(subject1, subject2)
         let s1 = subject1.substring(2);
         let s2 = subject2.substring(2);
@@ -141,7 +141,7 @@ export class AlgorithmController {
      * @param address2 - The second Ethereum address to compare  
      * @returns Object containing source address, destination address, and weighted similarity score (0-100)
      */
-    weightedMatch(address1: string, address2: string): WeightedMatch {
+    async weightedMatch(address1: string, address2: string): Promise<WeightedMatch> {
         let maxWeight = this.findMaxWeight(address1)
         let addressWeight = this.findWeight(address1, address2)
         let score = (addressWeight / maxWeight) * 100
@@ -249,7 +249,7 @@ export class AlgorithmController {
      * @param destinationAddress - The potentially malicious address to analyze
      * @returns Object containing source address, destination address, and array of matching sequences
      */
-    computeLongestMatch(realAddress: string, destinationAddress: string): LongestMatch {
+    async computeLongestMatch(realAddress: string, destinationAddress: string): Promise<LongestMatch> {
         this.preCheck(realAddress, destinationAddress)
         const snippedRealAddress = realAddress.substring(2)
         const snippeddDestinationAddress = destinationAddress.substring(2)
@@ -298,7 +298,7 @@ export class AlgorithmController {
      * @returns Object containing source address, destination address, and total character match count
      * @throws Error if addresses have different lengths
      */
-    totalCharacterMatch(realAddress: string, fakeAddress: string): CharacterMatch {
+    async totalCharacterMatch(realAddress: string, fakeAddress: string): Promise<CharacterMatch> {
         this.preCheck(realAddress, fakeAddress)
         const realAddressToMatch = realAddress.substring(2)
         const fakeAddressToMatch = fakeAddress.substring(2)
@@ -342,7 +342,7 @@ export class AlgorithmController {
      * @returns Object containing source address, destination address, and array of detected visual tricks
      * @throws Error if addresses have different lengths
      */
-    detectVisualTricks(sourceAddress: string, destinationAddress: string): VisualTricks {
+    async detectVisualTricks(sourceAddress: string, destinationAddress: string): Promise<VisualTricks> {
         this.preCheck(sourceAddress, destinationAddress)
         const tricks: string[] = [];
 
