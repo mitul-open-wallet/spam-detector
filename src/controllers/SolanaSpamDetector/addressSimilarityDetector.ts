@@ -1,0 +1,129 @@
+export class AddressSimilarityDetector {
+    confusingPairs = [
+        ['0', 'O'], ['0', 'o'], ['O', 'o'],
+        ['1', 'l'], ['1', 'I'], ['l', 'I'],
+        ['5', 'S'], ['5', 's'],
+        ['6', 'G'], ['6', 'b'],
+        ['8', 'B'],
+        ['9', 'g'], ['9', 'q'],
+        ['m', 'n'], ['r', 'n'],
+        ['u', 'v'], ['w', 'vv']
+    ];
+
+    private confusingPairsMap = new Map<string, string[]>();
+
+    constructor() {
+        this.buildConfusingPairsMap();
+    }
+
+    private buildConfusingPairsMap() {
+        for (const [char1, char2] of this.confusingPairs) {
+            if (!this.confusingPairsMap.has(char1)) {
+                this.confusingPairsMap.set(char1, []);
+            }
+            if (!this.confusingPairsMap.has(char2)) {
+                this.confusingPairsMap.set(char2, []);
+            }
+            this.confusingPairsMap.get(char1)!.push(char2);
+            this.confusingPairsMap.get(char2)!.push(char1);
+        }
+    }
+
+    compare(userAddress: string, targetAddress: string): boolean {
+        const lowerUser = userAddress.toLowerCase();
+        const lowerTarget = targetAddress.toLowerCase();
+
+        if (lowerUser === lowerTarget) {
+            return false;
+        }
+
+        const minLength = Math.min(lowerUser.length, lowerTarget.length);
+        if (minLength < 16) {
+            return false;
+        }
+
+        const prefixMatch = lowerUser.slice(0, 4) === lowerTarget.slice(0, 4);
+        const suffixMatch = lowerUser.slice(-4) === lowerTarget.slice(-4);
+        
+        if (prefixMatch && suffixMatch) {
+            return true;
+        }
+
+        return lowerUser.slice(8, -8) === lowerTarget.slice(8, -8);
+    }
+    
+
+    // find places where subsistutions have occured
+
+    findSubstitutions(userAddress: string, targetAddress: string): string[][] {
+        const pattern: string[][] = [];
+        const minLength = Math.min(userAddress.length, targetAddress.length);
+        
+        for (let i = 0; i < minLength; i++) {
+            const userChar = userAddress[i];
+            const targetChar = targetAddress[i];
+            
+            if (userChar !== targetChar) {
+                const confusingChars = this.confusingPairsMap.get(userChar);
+                if (confusingChars?.includes(targetChar)) {
+                    pattern.push([userChar, targetChar]);
+                }
+            }
+        }
+        
+        return pattern;
+    }
+
+    computeLongestMatch(realAddress: string, destinationAddress: string) {
+        const lowerReal = realAddress.toLowerCase();
+        const lowerDest = destinationAddress.toLowerCase();
+        const minLength = Math.min(lowerReal.length, lowerDest.length);
+        
+        if (minLength === 0) {
+            return {
+                matchingSequence: [],
+                longestMatch: 0,
+                totalMatches: 0,
+                threshold: 3
+            };
+        }
+        
+        const sequences: string[] = [];
+        let start = -1;
+        let longestLength = 0;
+        let totalMatches = 0;
+        
+        for (let i = 0; i < minLength; i++) {
+            if (lowerReal[i] === lowerDest[i]) {
+                if (start === -1) start = i;
+                totalMatches++;
+            } else {
+                if (start !== -1) {
+                    const sequenceLength = i - start;
+                    if (sequenceLength > 1) {
+                        const sequence = lowerReal.substring(start, i);
+                        sequences.push(sequence);
+                        longestLength = Math.max(longestLength, sequenceLength);
+                    }
+                    start = -1;
+                }
+            }
+        }
+        
+        if (start !== -1) {
+            const sequenceLength = minLength - start;
+            if (sequenceLength > 1) {
+                const sequence = lowerReal.substring(start, minLength);
+                sequences.push(sequence);
+                longestLength = Math.max(longestLength, sequenceLength);
+            }
+        }
+        
+        return {
+            matchingSequence: sequences,
+            longestMatch: longestLength,
+            totalMatches,
+            threshold: 3
+        };
+    }
+}

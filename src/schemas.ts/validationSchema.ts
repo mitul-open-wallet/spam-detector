@@ -30,6 +30,11 @@ const transactionHash = z.string()
 
 export const schema = {
 
+    threatDetectionSolana: z.object({
+        userAddress: solanaAddress,
+        targetAddress: solanaAddress
+    }),
+
     solanaBatch: z.object({
         txHashes: z.array(solanaSignature).min(1, "At least one transaction hash is required"),
         address: solanaAddress

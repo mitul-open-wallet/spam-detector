@@ -4,7 +4,17 @@ import { NFTSpamDetector } from "./SolanaSpamDetector/nftSpamDetector";
 import { SwapSpamDetector } from "./SolanaSpamDetector/swapSpamDetector";
 import { TokenSpamDetector } from "./SolanaSpamDetector/tokenSpamDetector";
 import { SolanaTransaction } from "../models/solanaTransaction";
+import { th } from "zod/v4/locales/index.cjs";
 
+class SolanaTransactionCollection {
+    receivedTransactions: SolanaTransaction[] 
+    sentTransactions: SolanaTransaction[]
+
+    constructor() {
+        this.receivedTransactions = []
+        this.sentTransactions = []
+    }
+}
 
 export interface SpamReport {
     found: {
@@ -13,6 +23,7 @@ export interface SpamReport {
     }[],
     notDetermined?: string[]
 }
+
 
 export class SolanaTransactionAnalyzer {
     solanaTransactionClient: SolanaTransactionClientInterface
@@ -35,7 +46,56 @@ export class SolanaTransactionAnalyzer {
         this.tokenSpamDetector = tokenSpamDetector
     }
 
-    private async isUserReceivingFunds(transaction: SolanaTransaction, userAddress: string): Promise<boolean> {
+    async find(userAddress: string, targetAddress: string) {
+        const transactions = await this.solanaTransactionClient.fetch(userAddress)
+        const transactionCollection: SolanaTransactionCollection = await transactions.reduce((acc, tx) => {
+            const isReceived = this.isUserReceivingFunds(tx, userAddress);
+            if (isReceived) {
+                acc.receivedTransactions.push(tx);
+
+            } else {
+                acc.sentTransactions.push(tx);
+            }
+            return acc;
+        }, new SolanaTransactionCollection());
+
+        const receivedTransactions = transactionCollection.receivedTransactions
+        const sentTransactions = transactionCollection.sentTransactions
+        
+        // const filtered = receivedTransactions
+        console.log(`total: ${transactions.length} received: ${receivedTransactions.length} sent: ${sentTransactions.length}`)
+
+        const incomingSpamTransactions: SolanaTransaction[] = await receivedTransactions.reduce(async (accPromise, tx) => {
+            const acc = await accPromise;
+            const isSpam = await this.categorisedAsSpam(tx, userAddress)
+            if (isSpam) {
+                acc.push(tx)
+            }
+            return acc;
+        }, Promise.resolve([] as SolanaTransaction[]))
+
+        console.log(`incomingSpamTransactions: ${incomingSpamTransactions.length}`)
+
+        const incomingSpamAddresses = Array.from(
+            new Set(
+                incomingSpamTransactions.flatMap(item => [...item.nativeTransfers.map(item => item.fromUserAccount.toLowerCase()), ...item.tokenTransfers.map(item => item.fromUserAccount.toLowerCase())])
+            )
+        )
+        // let isSpam = false
+        // // not safe
+        if (incomingSpamAddresses.includes(targetAddress.toLowerCase())) {
+            return true
+        }
+
+        // // Future: Could implement sent transaction analysis here if needed
+        // return isSpam
+
+        // colect all outgoing addresses and find patterns
+        return false
+    }
+
+    // fix
+    private isUserReceivingFunds(transaction: SolanaTransaction, userAddress: string): boolean {
         const hasIncomingNativeTransfer = transaction.nativeTransfers.some(nativeTransfer => nativeTransfer.toUserAccount === userAddress)
         const hasIncomingTokenTransfer = transaction.tokenTransfers.some(tokenTransfer => tokenTransfer.toUserAccount === userAddress)
     
@@ -52,14 +112,15 @@ export class SolanaTransactionAnalyzer {
         const hasIncomingNativeTransferEvent = nativeInput?.account === userAddress && parseInt(nativeInput.amount) > 0
         const hasIncomingTokenTransferEvent  = transaction.events.swap?.tokenInputs.some(item => (item.userAccount === userAddress && parseInt(item.rawTokenAmount.tokenAmount) > 0))
         const isNFTBeingReceived = nftOwners?.some(owner => owner === userAddress)
-          
-        return (hasIncomingNativeTransfer || hasIncomingTokenTransfer) || (isIncomingAccountNativeBalance ?? false) || (hasReceivedToken ?? false) || (isNFTBeingReceived ?? false) || hasIncomingNativeTransferEvent || (hasIncomingTokenTransferEvent ?? false)
+
+        const response = (hasIncomingNativeTransfer || hasIncomingTokenTransfer) || (isIncomingAccountNativeBalance ?? false) || (hasReceivedToken ?? false) || (isNFTBeingReceived ?? false) || hasIncomingNativeTransferEvent || (hasIncomingTokenTransferEvent ?? false)
+        return response
     }
 
     async isSpam(txHash: string, userAddress: string): Promise<boolean> {
         try {
             const solanaTransaction = await this.solanaTransactionClient.fetchTransactionDetails(txHash)
-            const isSpam = await this.categosriedAsSpam(solanaTransaction, userAddress)
+            const isSpam = await this.categorisedAsSpam(solanaTransaction, userAddress)
             console.log(`Solana: Tx Hash: ${txHash} user address" ${userAddress} isSpam: ${isSpam}`)
             return isSpam
         } catch {
@@ -76,7 +137,7 @@ export class SolanaTransactionAnalyzer {
             solanaTransactions.map(async item => {
                 return {
                     txHash: item.signature,
-                    isSpam: await this.categosriedAsSpam(item, userAddress)
+                    isSpam: await this.categorisedAsSpam(item, userAddress)
                 }
             }
         )
@@ -89,8 +150,8 @@ export class SolanaTransactionAnalyzer {
         }
     }
 
-    private async categosriedAsSpam(solanaTransaction: SolanaTransaction, userAddress: string) {
-        const isUserReceivingFunds = await this.isUserReceivingFunds(solanaTransaction, userAddress)
+    private async categorisedAsSpam(solanaTransaction: SolanaTransaction, userAddress: string) {
+        const isUserReceivingFunds = this.isUserReceivingFunds(solanaTransaction, userAddress)
         if (!isUserReceivingFunds) {
             return false
         }

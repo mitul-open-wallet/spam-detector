@@ -104,6 +104,7 @@ export class TransactionsFetcher {
         let contractTransactions = allTransactions
             .filter(item => this.isContract(item))
             .filter(item => item.isSuspicious)
+        console.log(JSON.stringify(contractTransactions))
         if (targetAddress !== undefined) {
             const targetAddressLower = targetAddress.toLowerCase()
             return contractTransactions.filter(item => item.recipient.lowercase === targetAddressLower || item.sender.lowercase === targetAddressLower)
@@ -284,7 +285,6 @@ export class TransactionsFetcher {
             cursor = result.response.cursor;
         } while (cursor);
         return { blockchain: blockchain, transactions: walletTransactions }
-        
     }
 }
 
