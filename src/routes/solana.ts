@@ -3,7 +3,6 @@ import { SolanaTransactionAnalyzerFactory } from "../controllers/solanaTransacti
 import { schema } from "../schemas.ts/validationSchema";
 import validateWithZod from "../middleware/zodValidation";
 import { SpamReport } from "../controllers/solanaTransactionAnalyzer";
-import { fi } from "zod/v4/locales/index.cjs";
 
 const router = Router();
 const transactionAnalyzer = SolanaTransactionAnalyzerFactory.create()
@@ -22,7 +21,7 @@ router.post("/bulkCheck", validateWithZod(schema.solanaBatch), async (request: R
 
 router.post("/threatDetection", validateWithZod(schema.threatDetectionSolana), async (request: Request, response: Response) => {
     const { userAddress, targetAddress } = request.body;
-    const find = await transactionAnalyzer.find(userAddress, targetAddress)
+    const find = await transactionAnalyzer.findThreat(userAddress, targetAddress)
     response.status(200).send(find)
 })
 

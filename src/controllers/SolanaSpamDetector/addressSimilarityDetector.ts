@@ -1,3 +1,17 @@
+export interface SolanaThreatSummary {
+    threatItems: SolanaThreatItem[],
+    isSafe: boolean
+}
+
+export type SolanaThreatType = "matching-suffix-prefix" | "character-subsitution" | "matching-sequences" | "dusting-attack"
+
+export interface SolanaThreatItem {
+    source: string
+    tragetAddress: string
+    description: string,
+    type: SolanaThreatType
+}
+
 export class AddressSimilarityDetector {
     confusingPairs = [
         ['0', 'O'], ['0', 'o'], ['O', 'o'],

@@ -5,6 +5,7 @@ import { SwapSpamDetector } from "./SolanaSpamDetector/swapSpamDetector";
 import { TokenSpamDetector } from "./SolanaSpamDetector/tokenSpamDetector";
 import { SolanaTransaction } from "../models/solanaTransaction";
 import { th } from "zod/v4/locales/index.cjs";
+import { AddressSimilarityDetector, SolanaThreatItem, SolanaThreatSummary } from "./SolanaSpamDetector/addressSimilarityDetector";
 
 class SolanaTransactionCollection {
     receivedTransactions: SolanaTransaction[] 
@@ -31,70 +32,130 @@ export class SolanaTransactionAnalyzer {
     tokenSpamDetector: TokenSpamDetector
     swapSpamDetector: SwapSpamDetector
     nftSpamDetector: NFTSpamDetector
+    addressSimilarityDetector: AddressSimilarityDetector
 
     constructor(
         solanaTransactionClient: SolanaTransactionClientInterface, 
         nativeDustingAttackDetector: NativeDustingAttackDetector,
         nftSpamDetector: NFTSpamDetector, 
         swapSpamDetector: SwapSpamDetector, 
-        tokenSpamDetector: TokenSpamDetector
+        tokenSpamDetector: TokenSpamDetector,
+        addressSimilarityDetector: AddressSimilarityDetector
     ) {
         this.solanaTransactionClient = solanaTransactionClient
         this.nativeDustingAttackDetector = nativeDustingAttackDetector
         this.nftSpamDetector = nftSpamDetector
         this.swapSpamDetector = swapSpamDetector
         this.tokenSpamDetector = tokenSpamDetector
+        this.addressSimilarityDetector = addressSimilarityDetector
     }
 
-    async find(userAddress: string, targetAddress: string) {
+    async findThreat(userAddress: string, targetAddress: string): Promise<SolanaThreatSummary> {
         const transactions = await this.solanaTransactionClient.fetch(userAddress)
-        const transactionCollection: SolanaTransactionCollection = await transactions.reduce((acc, tx) => {
-            const isReceived = this.isUserReceivingFunds(tx, userAddress);
-            if (isReceived) {
-                acc.receivedTransactions.push(tx);
-
-            } else {
-                acc.sentTransactions.push(tx);
-            }
-            return acc;
-        }, new SolanaTransactionCollection());
-
-        const receivedTransactions = transactionCollection.receivedTransactions
-        const sentTransactions = transactionCollection.sentTransactions
+        const lowerTargetAddress = targetAddress.toLowerCase()
         
-        // const filtered = receivedTransactions
-        console.log(`total: ${transactions.length} received: ${receivedTransactions.length} sent: ${sentTransactions.length}`)
-
-        const incomingSpamTransactions: SolanaTransaction[] = await receivedTransactions.reduce(async (accPromise, tx) => {
-            const acc = await accPromise;
-            const isSpam = await this.categorisedAsSpam(tx, userAddress)
-            if (isSpam) {
-                acc.push(tx)
+        const transactionCollection = transactions.reduce((acc, tx) => {
+            if (this.isUserReceivingFunds(tx, userAddress)) {
+                acc.receivedTransactions.push(tx)
+            } else {
+                acc.sentTransactions.push(tx)
             }
-            return acc;
-        }, Promise.resolve([] as SolanaTransaction[]))
+            return acc
+        }, new SolanaTransactionCollection())
 
-        console.log(`incomingSpamTransactions: ${incomingSpamTransactions.length}`)
-
-        const incomingSpamAddresses = Array.from(
-            new Set(
-                incomingSpamTransactions.flatMap(item => [...item.nativeTransfers.map(item => item.fromUserAccount.toLowerCase()), ...item.tokenTransfers.map(item => item.fromUserAccount.toLowerCase())])
-            )
+        const spamResults = await Promise.all(
+            transactionCollection.receivedTransactions.map(tx => this.categorisedAsSpam(tx, userAddress))
         )
-        // let isSpam = false
-        // // not safe
-        if (incomingSpamAddresses.includes(targetAddress.toLowerCase())) {
-            return true
+        
+        const incomingSpamTransactions = transactionCollection.receivedTransactions.filter((_, index) => spamResults[index])
+
+        const incomingSpamAddresses = new Set<string>()
+        incomingSpamTransactions.forEach(item => {
+            item.nativeTransfers.forEach(transfer => incomingSpamAddresses.add(transfer.fromUserAccount.toLowerCase()))
+            item.tokenTransfers.forEach(transfer => incomingSpamAddresses.add(transfer.fromUserAccount.toLowerCase()))
+        })
+
+        const validOutgoingAddresses = new Set<string>()
+        transactionCollection.sentTransactions.forEach(item => {
+            item.nativeTransfers.forEach(transfer => validOutgoingAddresses.add(transfer.toUserAccount))
+            item.tokenTransfers.forEach(transfer => validOutgoingAddresses.add(transfer.toUserAccount))
+        })
+
+        const threatItems: SolanaThreatItem[] = []
+        
+        if (incomingSpamAddresses.has(lowerTargetAddress)) {
+            threatItems.push({
+                source: targetAddress,
+                tragetAddress: targetAddress,
+                description: "",
+                type: "dusting-attack"
+            })
         }
 
-        // // Future: Could implement sent transaction analysis here if needed
-        // return isSpam
+        const validOutgoingAddressArray = Array.from(validOutgoingAddresses)
+        if (validOutgoingAddressArray.some(addr => addr.toLowerCase() === lowerTargetAddress)) {
+            return {
+                threatItems: [],
+                isSafe: true
+            }
+        }
 
-        // colect all outgoing addresses and find patterns
-        return false
+        const threatProfile = validOutgoingAddressArray.flatMap(item => 
+            this.checkSimilarity(item, targetAddress)
+        )
+        
+        const allThreats = [...threatItems, ...threatProfile]
+        return {
+            threatItems: allThreats,
+            isSafe: allThreats.length === 0
+        }
     }
 
-    // fix
+    checkSimilarity(validOutgoingAddress: string, targetAddress: string): SolanaThreatItem[] {
+        const lowerValidOutgoingAddress = validOutgoingAddress.toLowerCase()
+        const lowerTragetAddress = targetAddress.toLowerCase()
+
+        if (lowerValidOutgoingAddress === lowerTragetAddress) {
+            return []
+        }
+
+        const threatItems: SolanaThreatItem[] = []
+        const baseThreatItem = {
+            source: validOutgoingAddress,
+            tragetAddress: targetAddress,
+            description: ""
+        }
+
+        const match = this.addressSimilarityDetector.compare(lowerValidOutgoingAddress, lowerTragetAddress)
+        if (match) {
+            threatItems.push({
+                ...baseThreatItem,
+                type: "matching-suffix-prefix"
+            })
+        }
+
+        const longestMatch = this.addressSimilarityDetector.computeLongestMatch(lowerValidOutgoingAddress, lowerTragetAddress)
+        if (longestMatch.totalMatches === longestMatch.threshold) {
+            threatItems.push({
+                ...baseThreatItem,
+                type: "matching-sequences"
+            })
+        }
+
+        const closeSubsitutions = this.addressSimilarityDetector.findSubstitutions(lowerValidOutgoingAddress, lowerTragetAddress)
+        if (closeSubsitutions.length > 0) {
+            const substitutionCount = closeSubsitutions.reduce((count, item) => count + item.length, 0)
+            if (substitutionCount > 6) {
+                threatItems.push({
+                    ...baseThreatItem,
+                    type: "character-subsitution"
+                })
+            }
+        }
+
+        return threatItems
+    }
+
     private isUserReceivingFunds(transaction: SolanaTransaction, userAddress: string): boolean {
         const hasIncomingNativeTransfer = transaction.nativeTransfers.some(nativeTransfer => nativeTransfer.toUserAccount === userAddress)
         const hasIncomingTokenTransfer = transaction.tokenTransfers.some(tokenTransfer => tokenTransfer.toUserAccount === userAddress)

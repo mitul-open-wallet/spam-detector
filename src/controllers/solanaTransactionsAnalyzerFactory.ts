@@ -1,6 +1,7 @@
 import { appConfig } from "../config"
 import { AppConfig } from "../config/config.interface"
 import { SolanaMetadataFetcher, SolanaMetadataFetcherInterface } from "./solanaMetadataFetcher"
+import { AddressSimilarityDetector } from "./SolanaSpamDetector/addressSimilarityDetector"
 import { NativeDustingAttackDetector } from "./SolanaSpamDetector/nativeDustingAttackDetector"
 import { NFTSpamDetector } from "./SolanaSpamDetector/nftSpamDetector"
 import { SwapSpamDetector } from "./SolanaSpamDetector/swapSpamDetector"
@@ -25,7 +26,8 @@ export class SolanaTransactionAnalyzerFactory {
             new NativeDustingAttackDetector(),
             new NFTSpamDetector(metadataFetcher),
             new SwapSpamDetector(metadataFetcher),
-            new TokenSpamDetector(metadataFetcher)
+            new TokenSpamDetector(metadataFetcher),
+            new AddressSimilarityDetector()
         )
     }
 }
