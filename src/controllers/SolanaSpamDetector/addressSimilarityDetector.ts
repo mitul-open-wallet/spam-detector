@@ -12,6 +12,11 @@ export interface SolanaThreatItem {
     type: SolanaThreatType
 }
 
+/**
+ * Detector for identifying potentially malicious Solana addresses that are similar to legitimate ones.
+ * Uses various techniques including prefix/suffix matching, character substitution detection,
+ * and sequence matching to identify potential address spoofing attempts.
+ */
 export class AddressSimilarityDetector {
     confusingPairs = [
         ['0', 'O'], ['0', 'o'], ['O', 'o'],
@@ -26,10 +31,18 @@ export class AddressSimilarityDetector {
 
     private confusingPairsMap = new Map<string, string[]>();
 
+    /**
+     * Initializes the detector and builds the confusing pairs map for character substitution detection.
+     */
     constructor() {
         this.buildConfusingPairsMap();
     }
 
+    /**
+     * Builds a bidirectional map of visually similar characters that could be used in spoofing attacks.
+     * Each character maps to an array of characters it could be confused with.
+     * @private
+     */
     private buildConfusingPairsMap() {
         for (const [char1, char2] of this.confusingPairs) {
             if (!this.confusingPairsMap.has(char1)) {
@@ -43,6 +56,13 @@ export class AddressSimilarityDetector {
         }
     }
 
+    /**
+     * Compares two addresses to determine if they are suspiciously similar.
+     * Checks for matching prefixes/suffixes and middle sections that could indicate spoofing.
+     * @param userAddress - The user's legitimate address
+     * @param targetAddress - The potentially malicious address to check
+     * @returns true if the addresses are suspiciously similar, false otherwise
+     */
     compare(userAddress: string, targetAddress: string): boolean {
         const lowerUser = userAddress.toLowerCase();
         const lowerTarget = targetAddress.toLowerCase();
@@ -67,8 +87,13 @@ export class AddressSimilarityDetector {
     }
     
 
-    // find places where subsistutions have occured
-
+    /**
+     * Finds character substitutions between two addresses using visually confusing characters.
+     * Identifies positions where characters differ but could be visually confused.
+     * @param userAddress - The user's legitimate address
+     * @param targetAddress - The potentially malicious address to analyze
+     * @returns Array of character pairs [userChar, targetChar] where substitutions occurred
+     */
     findSubstitutions(userAddress: string, targetAddress: string): string[][] {
         const pattern: string[][] = [];
         const minLength = Math.min(userAddress.length, targetAddress.length);
@@ -88,6 +113,13 @@ export class AddressSimilarityDetector {
         return pattern;
     }
 
+    /**
+     * Computes the longest matching sequences between two addresses.
+     * Analyzes consecutive character matches to identify potential spoofing patterns.
+     * @param realAddress - The legitimate address to compare against
+     * @param destinationAddress - The address to analyze for similarities
+     * @returns Object containing matching sequences, longest match length, total matches, and threshold
+     */
     computeLongestMatch(realAddress: string, destinationAddress: string) {
         const lowerReal = realAddress.toLowerCase();
         const lowerDest = destinationAddress.toLowerCase();
