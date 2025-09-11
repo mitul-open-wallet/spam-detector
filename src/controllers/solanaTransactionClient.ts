@@ -5,24 +5,31 @@ import { SolanaTransaction } from "../models/solanaTransaction"
 export interface SolanaTransactionClientInterface {
     fetchTransactionDetails(txHash: string): Promise<SolanaTransaction>
     batchFetchTransactions(txHashes: string[]): Promise<SolanaTransaction[]>
+    fetch(address: string): Promise<SolanaTransaction[]>
 }
 
 export class SolanaTransactionClient implements SolanaTransactionClientInterface {
 
     constructor(private appConfig: AppConfig) {}
 
+    async fetch(address: string): Promise<SolanaTransaction[]> {
+      const url = appConfig.heliumTransactionsURL(address, this.appConfig.heliumAPIKey)
+      const networkResponse = await fetch(url)
+      return await networkResponse.json()
+    }
+
     private async fetchTransaction(txHashes: string[]): Promise<SolanaTransaction[]> {
       const url = appConfig.heliumBaseURL(this.appConfig.heliumAPIKey)
-        const networkResponse = await fetch(url, {
-          method: "POST",
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transactions: txHashes
-          })
+      const networkResponse = await fetch(url, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactions: txHashes
         })
-        return await networkResponse.json()
+      })
+      return await networkResponse.json()
     }
 
     /**

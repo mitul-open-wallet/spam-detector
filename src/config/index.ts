@@ -13,6 +13,9 @@ export const appConfig: AppConfig = (() => {
         },
         heliumBaseURL: (apiKey: string) => {
             return `https://api.helius.xyz/v0/transactions?api-key=${apiKey}`
+        },
+        heliumTransactionsURL: (userAddress, apiKey) => {
+            return `https://api.helius.xyz/v0/addresses/${userAddress}/transactions?api-key=${apiKey}`
         }
     }
 })()

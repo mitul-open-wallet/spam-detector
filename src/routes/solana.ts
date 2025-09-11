@@ -19,4 +19,10 @@ router.post("/bulkCheck", validateWithZod(schema.solanaBatch), async (request: R
     response.status(200).send(report)
 })
 
+router.post("/threatDetection", validateWithZod(schema.threatDetectionSolana), async (request: Request, response: Response) => {
+    const { userAddress, targetAddress } = request.body;
+    const find = await transactionAnalyzer.findThreat(userAddress, targetAddress)
+    response.status(200).send(find)
+})
+
 export default router;

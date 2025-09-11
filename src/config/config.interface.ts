@@ -4,4 +4,5 @@ export interface AppConfig {
     heliumAPIKey: string
     solanaMetadataURL: (contractAddress: string) => string
     heliumBaseURL: (apiKey: string) => string
+    heliumTransactionsURL: (userAddress: string, apiKey: string) => string
 }
