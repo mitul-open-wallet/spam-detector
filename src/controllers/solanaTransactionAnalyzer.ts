@@ -4,7 +4,7 @@ import { NFTSpamDetector } from "./SolanaSpamDetector/nftSpamDetector";
 import { SwapSpamDetector } from "./SolanaSpamDetector/swapSpamDetector";
 import { TokenSpamDetector } from "./SolanaSpamDetector/tokenSpamDetector";
 import { SolanaTransaction } from "../models/solanaTransaction";
-import { AddressSimilarityDetector, SolanaThreatItem, SolanaThreatSummary } from "./SolanaSpamDetector/addressSimilarityDetector";
+import { AddressSimilarityDetector, SolanaThreatItem, SolanaThreatSummary, SolanaThreatType } from "./SolanaSpamDetector/addressSimilarityDetector";
 
 class SolanaTransactionCollection {
     receivedTransactions: SolanaTransaction[] 
@@ -107,8 +107,7 @@ export class SolanaTransactionAnalyzer {
             threatItems.push({
                 source: targetAddress,
                 tragetAddress: targetAddress,
-                description: "",
-                type: "dusting-attack"
+                ...this.descriptionForThreatType("dusting-attack")
             })
         }
 
@@ -149,15 +148,14 @@ export class SolanaTransactionAnalyzer {
         const threatItems: SolanaThreatItem[] = []
         const baseThreatItem = {
             source: validOutgoingAddress,
-            tragetAddress: targetAddress,
-            description: ""
+            tragetAddress: targetAddress
         }
 
         const match = this.addressSimilarityDetector.compare(lowerValidOutgoingAddress, lowerTragetAddress)
         if (match) {
             threatItems.push({
                 ...baseThreatItem,
-                type: "matching-suffix-prefix"
+                ...this.descriptionForThreatType("matching-suffix-prefix")
             })
         }
 
@@ -165,7 +163,7 @@ export class SolanaTransactionAnalyzer {
         if (longestMatch.totalMatches === longestMatch.threshold) {
             threatItems.push({
                 ...baseThreatItem,
-                type: "matching-sequences"
+                ...this.descriptionForThreatType("matching-sequences")
             })
         }
 
@@ -175,12 +173,37 @@ export class SolanaTransactionAnalyzer {
             if (substitutionCount > 6) {
                 threatItems.push({
                     ...baseThreatItem,
-                    type: "character-subsitution"
+                    ...this.descriptionForThreatType("character-subsitution")
                 })
             }
         }
 
         return threatItems
+    }
+
+    private descriptionForThreatType(type: SolanaThreatType) {
+        let description: string
+        switch (type) {
+            case "character-subsitution":
+                description = "Address uses similar characters to a known address, potentially attempting to deceive through visual substitution"
+                break
+            case "dusting-attack":
+                description = "Address has sent you spam transactions (dusting attack) in the past"
+                break
+            case "matching-sequences":
+                description = "Address contains matching character sequences with a known address, indicating possible spoofing"
+                break
+            case "matching-suffix-prefix":
+                description = "Address has matching prefix or suffix with a known address, potentially attempting address spoofing"
+                break
+            default:
+                description =  "Unknown threat type"
+                break
+        }
+        return {
+            type,
+            description
+        }
     }
 
     /**
