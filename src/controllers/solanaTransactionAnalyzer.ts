@@ -70,7 +70,7 @@ export class SolanaTransactionAnalyzer {
      * @param targetAddress - The target address to check for threats
      * @returns Promise resolving to threat summary with detected threats and safety status
      */
-    async findThreat(userAddress: string, targetAddress: string): Promise<SolanaThreatSummary> {
+    async findThreat(userAddress: string, targetAddress: string): Promise<SolanaThreatSummary> {    
         const transactions = await this.solanaTransactionClient.fetch(userAddress)
         const lowerTargetAddress = targetAddress.toLowerCase()
         
@@ -112,12 +112,6 @@ export class SolanaTransactionAnalyzer {
         }
 
         const validOutgoingAddressArray = Array.from(validOutgoingAddresses)
-        if (validOutgoingAddressArray.some(addr => addr.toLowerCase() === lowerTargetAddress)) {
-            return {
-                threatItems: [],
-                isSafe: true
-            }
-        }
 
         const threatProfile = validOutgoingAddressArray.flatMap(item => 
             this.checkSimilarity(item, targetAddress)
