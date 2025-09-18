@@ -70,7 +70,7 @@ export class SolanaTransactionAnalyzer {
      * @param targetAddress - The target address to check for threats
      * @returns Promise resolving to threat summary with detected threats and safety status
      */
-    async findThreat(userAddress: string, targetAddress: string): Promise<SolanaThreatSummary> {    
+    async findThreat(userAddress: string, targetAddress: string, enableOutgoingAddressCheck: boolean = false): Promise<SolanaThreatSummary> {    
         const transactions = await this.solanaTransactionClient.fetch(userAddress)
         const lowerTargetAddress = targetAddress.toLowerCase()
         
@@ -95,13 +95,7 @@ export class SolanaTransactionAnalyzer {
             item.tokenTransfers.forEach(transfer => incomingSpamAddresses.add(transfer.fromUserAccount.toLowerCase()))
         })
 
-        const validOutgoingAddresses = new Set<string>()
-        transactionCollection.sentTransactions.forEach(item => {
-            item.nativeTransfers.forEach(transfer => validOutgoingAddresses.add(transfer.toUserAccount))
-            item.tokenTransfers.forEach(transfer => validOutgoingAddresses.add(transfer.toUserAccount))
-        })
-
-        const threatItems: SolanaThreatItem[] = []
+        let threatItems: SolanaThreatItem[] = []
         
         if (incomingSpamAddresses.has(lowerTargetAddress)) {
             threatItems.push({
@@ -111,16 +105,24 @@ export class SolanaTransactionAnalyzer {
             })
         }
 
-        const validOutgoingAddressArray = Array.from(validOutgoingAddresses)
+        if (enableOutgoingAddressCheck) {
+            const validOutgoingAddresses = new Set<string>()
+            transactionCollection.sentTransactions.forEach(item => {
+                item.nativeTransfers.forEach(transfer => validOutgoingAddresses.add(transfer.toUserAccount))
+                item.tokenTransfers.forEach(transfer => validOutgoingAddresses.add(transfer.toUserAccount))
+            })
 
-        const threatProfile = validOutgoingAddressArray.flatMap(item => 
-            this.checkSimilarity(item, targetAddress)
-        )
+            const validOutgoingAddressArray = Array.from(validOutgoingAddresses)
+
+            const threatProfile = validOutgoingAddressArray.flatMap(item => 
+                this.checkSimilarity(item, targetAddress)
+            )
+            threatItems.push(...threatProfile)
+        }
         
-        const allThreats = [...threatItems, ...threatProfile]
         return {
-            threatItems: allThreats,
-            isSafe: allThreats.length === 0
+            threatItems: threatItems,
+            isSafe: threatItems.length === 0
         }
     }
 
