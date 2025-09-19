@@ -119,10 +119,14 @@ export class SolanaTransactionAnalyzer {
             )
             threatItems.push(...threatProfile)
         }
+
+        const isSafe = threatItems.length === 0
+
+        console.log(`Threat detection -> userAddress: ${userAddress} targetAddress: ${targetAddress} isSafe: ${isSafe}`)
         
         return {
             threatItems: threatItems,
-            isSafe: threatItems.length === 0
+            isSafe: isSafe
         }
     }
 
