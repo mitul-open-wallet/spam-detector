@@ -13,7 +13,8 @@ export class TransactionsFetcher {
         Blockchain.cronos,
         Blockchain.bsc,
         Blockchain.linea,
-        Blockchain.polygon
+        Blockchain.polygon,
+        Blockchain.monad
     ]
 
     private isInitialised = false
