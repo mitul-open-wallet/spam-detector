@@ -8,7 +8,8 @@ export enum Blockchain {
     arbitrum = "0xa4b1",
     optimism = "0xa",
     cronos = "0x19",
-    linea = "0xe708"
+    linea = "0xe708",
+    monad = "0x89"
 }
 
 export interface BlockchainTransactions {
