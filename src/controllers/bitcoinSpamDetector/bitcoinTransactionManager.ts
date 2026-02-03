@@ -1,8 +1,19 @@
-import { AddressType, getAddressInfo } from "bitcoin-address-validation"
 import { AppConfig } from "../../config/config.interface"
 import { BitcoinTransactionClient } from "./bitcoinTransactionClient"
 import { Transaction } from "../../models/bitcoinTransaction"
 import { BitcoinAddressSimilarityChecker } from "./bitcoinAddressSimilarityChecker"
+import type { AddressType, AddressInfo } from "bitcoin-address-validation"
+
+type GetAddressInfoFn = (address: string) => AddressInfo
+
+let bitcoinAddressValidation: { getAddressInfo: GetAddressInfoFn } | null = null
+
+async function loadBitcoinAddressValidation() {
+  if (!bitcoinAddressValidation) {
+    bitcoinAddressValidation = await import("bitcoin-address-validation")
+  }
+  return bitcoinAddressValidation
+}
 
 export enum BitcoinTransactionType {
   self = "sent to self",
@@ -20,6 +31,7 @@ export class BitcoinTransactionManager {
   }
 
   async isSpam(txHash: string, receivingAddress: string, sendingAddresses: string[] = []): Promise<boolean> {
+    const { getAddressInfo } = await loadBitcoinAddressValidation()
     const allTransactions = await this.fetchAll(receivingAddress)
 
     // Find the transaction first to avoid unnecessary processing
@@ -47,15 +59,14 @@ export class BitcoinTransactionManager {
             return false
         }
     } else {
-        console.log(">>>>>>>>>")
         incomingAddresses = sendingAddresses
     }
 
     // Group outgoing addresses by type (only once)
-    const outgoingTransactionsByType = this.groupSentAdddressesByType(allTransactions, receivingAddress)
+    const outgoingTransactionsByType = this.groupSentAdddressesByType(allTransactions, receivingAddress, getAddressInfo)
 
     // Cache getAddressInfo calls to avoid repeated parsing
-    const addressInfoCache = new Map<string, ReturnType<typeof getAddressInfo>>()
+    const addressInfoCache = new Map<string, ReturnType<GetAddressInfoFn>>()
     const getAddressInfoCached = (address: string) => {
         let info = addressInfoCache.get(address)
         if (!info) {
@@ -86,7 +97,7 @@ export class BitcoinTransactionManager {
   }
 
 
-  private groupSentAdddressesByType(userTransactions: Transaction[], userAddress: string) {
+  private groupSentAdddressesByType(userTransactions: Transaction[], userAddress: string, getAddressInfo: GetAddressInfoFn) {
     // Group addresses by type directly to avoid intermediate Set
     const addressInfoMap = new Map<AddressType, Set<string>>()
 
