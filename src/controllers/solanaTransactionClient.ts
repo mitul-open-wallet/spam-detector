@@ -1,5 +1,7 @@
+import { number } from "zod"
 import { appConfig } from "../config"
 import { AppConfig } from "../config/config.interface"
+import { BitcoinTransaction, Transaction } from "../models/bitcoinTransaction"
 import { SolanaTransaction } from "../models/solanaTransaction"
 
 export interface SolanaTransactionClientInterface {

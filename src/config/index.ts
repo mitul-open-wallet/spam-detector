@@ -16,6 +16,7 @@ export const appConfig: AppConfig = (() => {
         },
         heliumTransactionsURL: (userAddress, apiKey) => {
             return `https://api.helius.xyz/v0/addresses/${userAddress}/transactions?api-key=${apiKey}`
-        }
+        },
+        nowNodesAPIKey: process.env.NOW_NODES_API_KEY ?? ""
     }
 })()
