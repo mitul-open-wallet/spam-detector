@@ -13,7 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bitcoin-address-validation": "^3.0.0",
+    "bitcoin-address-validation": "^2.2.3",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "moralis": "^2.27.2",

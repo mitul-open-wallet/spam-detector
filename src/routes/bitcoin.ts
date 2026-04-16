@@ -11,17 +11,20 @@ router.post("/check", async (request: Request, response: Response) => {
     const { txHash, receivingAddress, sendingAddresses = [] } = request.body;
 
     if ((typeof txHash !== "string")) {
-        return response.status(400).send({ error: "txHash is not an string" })
+        response.status(400).send({ error: "txHash is not an string" });
+        return;
     }
 
     if ((typeof receivingAddress !== "string")) {
-        return response.status(400).send({ error: "receivingAddress is not an string" })
+        response.status(400).send({ error: "receivingAddress is not an string" });
+        return;
     }
 
     const validArray = (Array.isArray(sendingAddresses) && sendingAddresses.every(address => typeof address === "string"))
 
     if (!validArray) {
-        return response.status(400).send({ error: "sendingAddresses is not an string array" })
+        response.status(400).send({ error: "sendingAddresses is not an string array" });
+        return;
     }
 
     try {
