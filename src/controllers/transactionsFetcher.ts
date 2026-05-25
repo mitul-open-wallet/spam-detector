@@ -7,20 +7,20 @@ export class TransactionsFetcher {
 
     private chains = [
         Blockchain.ethereum,
-        Blockchain.arbitrum,
         Blockchain.base,
-        Blockchain.optimism,
-        Blockchain.cronos,
-        Blockchain.bsc,
-        Blockchain.linea,
         Blockchain.polygon,
-        Blockchain.monad
+        // Blockchain.arbitrum
+        // Blockchain.optimism,
+        // Blockchain.cronos,
+        // Blockchain.bsc,
+        // Blockchain.linea,
+        // Blockchain.monad
     ]
 
     private isInitialised = false
     private static instance: TransactionsFetcher
 
-    constructor() {}
+    constructor() { }
 
     static getInstance() {
         if (!TransactionsFetcher.instance) {
@@ -49,8 +49,8 @@ export class TransactionsFetcher {
         }
         const blockchainTransactions = await this.allTransactions(userAddress)
         const filteredTransactions = blockchainTransactions
-        .flatMap(blockchainTransaction => blockchainTransaction.transactions)
-        .filter(item => item.hash === txhash)
+            .flatMap(blockchainTransaction => blockchainTransaction.transactions)
+            .filter(item => item.hash === txhash)
         if (filteredTransactions.length === 0) {
             const error = new Error(`Transaction with hash '${txhash}' not found for address '${userAddress}'`)
             error.name = 'TRANSACTION_NOT_FOUND'
@@ -117,7 +117,7 @@ export class TransactionsFetcher {
         if (!this.isInitialised) {
             throw new Error("Moralis client is not initialised")
         }
-        
+
         const blockchainTransactions = await this.allTransactions(userAddress)
         return blockchainTransactions.flatMap(blockchainTransaction => {
             let chain = blockchainTransaction.blockchain
@@ -126,18 +126,18 @@ export class TransactionsFetcher {
     }
 
     private collectChainTransactions(
-        blockchain: Blockchain, 
-        allTransactions: EvmChain.EvmWalletHistoryTransaction[], 
+        blockchain: Blockchain,
+        allTransactions: EvmChain.EvmWalletHistoryTransaction[],
         userAddress: string
     ): NativeOrContract[] {
         const normalizedUserAddress = userAddress.toLowerCase();
         let itemAdded = false
         const result: NativeOrContract[] = [];
-    
+
         for (const transaction of allTransactions) {
             const { hash: txHash } = transaction;
             const isSuspicious = this.isSuspicious(transaction);
-        
+
             // Process native transfers
             for (const transfer of transaction.nativeTransfers) {
                 itemAdded = true
@@ -152,14 +152,14 @@ export class TransactionsFetcher {
                     recipient: transfer.toAddress
                 } as BaseTransactionItem);
             }
-        
+
             // Process ERC20 transfers
             for (const transfer of transaction.erc20Transfers) {
                 itemAdded = true
-                const direction = normalizedUserAddress === transfer.fromAddress.lowercase 
-                    ? "send" as const 
+                const direction = normalizedUserAddress === transfer.fromAddress.lowercase
+                    ? "send" as const
                     : "receive" as const;
-                
+
                 result.push({
                     blockchain,
                     txHash,
@@ -173,14 +173,14 @@ export class TransactionsFetcher {
                     isSuspicious
                 } as ContractItem);
             }
-        
+
             // Process NFT transfers
             for (const transfer of transaction.nftTransfers) {
                 itemAdded = true
-                const direction = normalizedUserAddress === transfer.fromAddress.lowercase 
-                    ? "send" as const 
+                const direction = normalizedUserAddress === transfer.fromAddress.lowercase
+                    ? "send" as const
                     : "receive" as const;
-                
+
                 result.push({
                     blockchain,
                     txHash,
@@ -212,7 +212,7 @@ export class TransactionsFetcher {
             }
             itemAdded = false
         }
-    
+
         return result;
     }
 
@@ -221,15 +221,15 @@ export class TransactionsFetcher {
             return true;
         }
 
-        if (item.nativeTransfers.length === 0 
-            && item.erc20Transfers.length === 0 
-            && item.nftTransfers.length === 0 
+        if (item.nativeTransfers.length === 0
+            && item.erc20Transfers.length === 0
+            && item.nftTransfers.length === 0
             && item.contractInteractions === undefined) {
             return true;
         }
 
         return item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer)) ||
-           item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer));
+            item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer));
     }
 
     private isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer): boolean {
@@ -241,7 +241,7 @@ export class TransactionsFetcher {
         } else if ('verifiedCollection' in transfer) {
             return !transfer.verifiedCollection;
         }
-        return false;  
+        return false;
     }
 
     private async allTransactions(userAddress: string): Promise<BlockchainTransactions[]> {
@@ -259,10 +259,10 @@ export class TransactionsFetcher {
                 console.error(`Failed to fetch result for ${this.chains[index]}`)
             }
         })
-        return transactions   
+        return transactions
     }
 
-    private async fetchTransactions(blockchain: Blockchain, address: string): Promise<BlockchainTransactions>  {
+    private async fetchTransactions(blockchain: Blockchain, address: string): Promise<BlockchainTransactions> {
         let cursor: undefined | string = undefined;
         let pageSize = 100;
         let walletTransactions: EvmChain.EvmWalletHistoryTransaction[] = [];
