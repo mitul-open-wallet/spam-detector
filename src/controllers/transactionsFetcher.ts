@@ -8,7 +8,7 @@ export class TransactionsFetcher {
     private chains = [
         Blockchain.ethereum,
         Blockchain.base,
-        // Blockchain.polygon,
+        Blockchain.polygon,
         // Blockchain.arbitrum,
         // Blockchain.optimism,
         // Blockchain.cronos,
