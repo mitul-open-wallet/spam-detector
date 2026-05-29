@@ -218,7 +218,6 @@ export class TransactionsFetcher {
     }
 
     isSuspicious(item: EvmChain.EvmWalletHistoryTransaction): boolean {
-        console.log("called isSuspicious")
         let isSpam = false
         let isDust = false
         if (item.possibleSpam || item.methodLabel === "airdrop" || item.category === "airdrop") {
@@ -263,7 +262,9 @@ export class TransactionsFetcher {
             isSpam = true;
         }
 
-        return isSpam || isDust
+        const result = isSpam || isDust
+        console.log(`${item.hash}: isSpam => ${isSpam} isDust => ${isDust} isSuspicious => ${result}`)
+        return result
     }
 
     private isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer): boolean {
