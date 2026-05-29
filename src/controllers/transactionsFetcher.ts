@@ -149,7 +149,8 @@ export class TransactionsFetcher {
                     decimal: 18,
                     direction: transfer.direction,
                     sender: transfer.fromAddress,
-                    recipient: transfer.toAddress
+                    recipient: transfer.toAddress,
+                    isSuspicious: isSuspicious
                 } as BaseTransactionItem);
             }
 
@@ -217,19 +218,52 @@ export class TransactionsFetcher {
     }
 
     isSuspicious(item: EvmChain.EvmWalletHistoryTransaction): boolean {
+        let isSpam = false
+        let isDust = false
         if (item.possibleSpam || item.methodLabel === "airdrop" || item.category === "airdrop") {
-            return true;
+            isSpam = true;
+        }
+
+        if (item.nativeTransfers.length === 1) {
+            const nativeTransfer = item.nativeTransfers[0]
+            const decimals = 18
+            const amountValue = BigInt(nativeTransfer.value)
+            const threshold = Math.pow(10, (decimals / 2))
+            if (amountValue <= threshold) {
+                isDust = true;
+            }
+        }
+
+        if (item.erc20Transfers.length === 1) {
+            const tokenTransfer = item.erc20Transfers[0]
+            const decimals = tokenTransfer.tokenDecimals
+            const amountValue = BigInt(tokenTransfer.value)
+            const threshold = Math.pow(10, (decimals / 2))
+            if (amountValue <= threshold) {
+                isDust = true;
+            }
         }
 
         if (item.nativeTransfers.length === 0
             && item.erc20Transfers.length === 0
             && item.nftTransfers.length === 0
             && item.contractInteractions === undefined) {
-            return true;
+            isSpam = true;
         }
 
-        return item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer)) ||
-            item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer));
+        if (item.erc20Transfers.some(transfer => this.isSuspiciousTransfer(transfer)) ||
+            item.nftTransfers.some(transfer => this.isSuspiciousTransfer(transfer))) {
+            isSpam = true;
+        }
+
+        if (isDust) {
+            console.log(`item ${JSON.stringify(item)} is a dust transaction`)
+        }
+        if (isSpam) {
+            console.log(`item ${JSON.stringify(item)} is a spam transaction`)
+        }
+
+        return isSpam || isDust
     }
 
     private isSuspiciousTransfer(transfer: EvmChain.EvmWalletHistoryErc20Transfer | EvmChain.EvmWalletHistoryNftTransfer): boolean {

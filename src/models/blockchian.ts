@@ -26,11 +26,11 @@ export interface BaseTransactionItem {
     direction: string | undefined
     sender: EvmAddress
     recipient: EvmAddress
+    isSuspicious: boolean
 }
 
 export interface ContractItem extends BaseTransactionItem {
     contractAddress: EvmAddress
-    isSuspicious: boolean
 }
 
 export type NativeOrContract = BaseTransactionItem | ContractItem
