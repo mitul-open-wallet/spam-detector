@@ -55,8 +55,6 @@ export class BitcoinAddressSimilarityChecker {
     const prefixMatch = (prefixMatchCounter / matchLength) * 100
     const suffixMatch = (suffixMatchCounter / matchLength) * 100
 
-    console.log(`ad1: ${address1} ad2: ${address2} p: ${prefixMatch} s:${suffixMatch}`)
-
     // Return true if both prefix and suffix meet threshold
     return prefixMatch >= threshold && suffixMatch >= threshold
   }

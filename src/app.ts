@@ -13,9 +13,7 @@ let start = (async () => {
     let instance = TransactionsFetcher.getInstance()
     await instance.initDependencies()
 
-    app.listen(appConfig.port, () => {
-        console.log(`Server is running at ${appConfig.port}`);
-    });
+    app.listen(appConfig.port, () => {});
 })
 start();
 

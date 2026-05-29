@@ -121,8 +121,6 @@ export class SolanaTransactionAnalyzer {
         }
 
         const isSafe = threatItems.length === 0
-
-        console.log(`Threat detection -> userAddress: ${userAddress} targetAddress: ${targetAddress} isSafe: ${isSafe}`)
         
         return {
             threatItems: threatItems,
@@ -246,10 +244,8 @@ export class SolanaTransactionAnalyzer {
         try {
             const solanaTransaction = await this.solanaTransactionClient.fetchTransactionDetails(txHash)
             const isSpam = await this.categorisedAsSpam(solanaTransaction, userAddress)
-            console.log(`Solana: Tx Hash: ${txHash} user address" ${userAddress} isSpam: ${isSpam}`)
             return isSpam
         } catch {
-            console.log("error")
             const error = new Error(`Transaction with hash ${txHash} not found for address ${userAddress}`)
             error.name = 'TRANSACTION_NOT_FOUND'
             throw error
