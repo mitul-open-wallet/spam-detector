@@ -218,6 +218,7 @@ export class TransactionsFetcher {
     }
 
     isSuspicious(item: EvmChain.EvmWalletHistoryTransaction): boolean {
+        console.log("called isSuspicious")
         let isSpam = false
         let isDust = false
         if (item.possibleSpam || item.methodLabel === "airdrop" || item.category === "airdrop") {
@@ -228,7 +229,7 @@ export class TransactionsFetcher {
             const nativeTransfer = item.nativeTransfers[0]
             const decimals = 18
             const amountValue = BigInt(nativeTransfer.value)
-            const threshold = Math.pow(10, (decimals / 2))
+            const threshold = Math.pow(10, decimals - 5)
             if (amountValue <= threshold) {
                 isDust = true;
             }
@@ -238,7 +239,13 @@ export class TransactionsFetcher {
             const tokenTransfer = item.erc20Transfers[0]
             const decimals = tokenTransfer.tokenDecimals
             const amountValue = BigInt(tokenTransfer.value)
-            const threshold = Math.pow(10, (decimals / 2))
+            let reductionThreshold = 3
+            if (decimals === 18) {
+                reductionThreshold = 5
+            } else if (decimals === 6) {
+                reductionThreshold = 3
+            }
+            const threshold = Math.pow(10, decimals - reductionThreshold)
             if (amountValue <= threshold) {
                 isDust = true;
             }
