@@ -256,13 +256,6 @@ export class TransactionsFetcher {
             isSpam = true;
         }
 
-        if (isDust) {
-            console.log(`item ${JSON.stringify(item)} is a dust transaction`)
-        }
-        if (isSpam) {
-            console.log(`item ${JSON.stringify(item)} is a spam transaction`)
-        }
-
         return isSpam || isDust
     }
 
