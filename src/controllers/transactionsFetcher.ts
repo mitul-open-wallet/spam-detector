@@ -14,7 +14,7 @@ export class TransactionsFetcher {
         // Blockchain.cronos,
         // Blockchain.bsc,
         // Blockchain.linea,
-        // Blockchain.monad
+        Blockchain.monad
     ]
 
     private isInitialised = false
