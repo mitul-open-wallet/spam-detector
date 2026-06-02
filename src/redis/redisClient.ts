@@ -4,31 +4,6 @@ import { AppConfig } from "../config/config.interface"
 import { NativeOrContract } from "../models/blockchian"
 import EvmChain, { EvmWalletHistoryTransaction } from "@moralisweb3/common-evm-utils"
 
-// export const redisClient = createClient({
-//     url: appConfig.redisURL
-// })
-
-// redisClient.on("error", (error) => {
-//     console.error("Redis Client Error:", error)
-// })
-
-// redisClient.on("connect", () => {
-//     console.log("Redis Client Connected")
-// })
-
-// redisClient.on("reconnecting", () => {
-//     console.log("Redis Client Reconnecting")
-// })
-
-// redisClient.on("ready", () => {
-//     console.log("Redis Client Ready")
-// })
-
-// redisClient.on("error", (err) => {
-//     console.log("Redis Client Error:", err);
-// });
-
-
 export class RedisClient {
 
     private static instance?: RedisClient

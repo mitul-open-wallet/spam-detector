@@ -13,7 +13,6 @@ router.post("/check", validateWithZod(schema.spam), async (request: Request, res
         let isSpam = await threatDetection.isSpam(txHash, address);
         response.status(200).send({ isSpam: isSpam });
     } catch (error) {
-        console.error("Error checking spam status:", error);
         response.status(500).send({
             error: `Transaction with txHash: ${txHash} is not associated with ${address}`
         });
