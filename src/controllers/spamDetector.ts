@@ -1,18 +1,34 @@
 import { NativeOrContract } from "../models/blockchian"
 import { TransactionsFetcher } from "./transactionsFetcher"
+import { RedisClient } from "../redis/redisClient"
+import { AppConfig } from "../config/config.interface"
+import { EvmWalletHistoryTransaction } from "@moralisweb3/common-evm-utils";
 
 export class SpamDetector {
 
     transactionsFetcher: TransactionsFetcher
+    redisClient: RedisClient
 
-    constructor() {
+    constructor(appConfig: AppConfig) {
         this.transactionsFetcher = TransactionsFetcher.getInstance()
+        this.redisClient = RedisClient.getInstance(appConfig)
     }
 
     async isSpam(txHash: string, userAddress: string): Promise<boolean> {
-        const transaction = await this.transactionsFetcher.findTransaction(txHash, userAddress)
-        const isSpam = this.transactionsFetcher.isSuspicious(transaction)
-        return isSpam
+        let transaction: EvmWalletHistoryTransaction | null
+        try {
+            transaction = await this.redisClient.queryTransaction(txHash)
+        } catch (error) {
+            transaction = await this.transactionsFetcher.findTransaction(txHash, userAddress)
+            if (transaction) {
+                await this.redisClient.saveTransaction(txHash, transaction)
+            }
+        }
+        if (transaction) {
+            const isSpam = this.transactionsFetcher.isSuspicious(transaction!)
+            return isSpam
+        }
+        return false
     }
 
     async findInfections(userAdrress: string, targetAddress: string | undefined = undefined): Promise<NativeOrContract[]> {

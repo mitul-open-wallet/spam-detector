@@ -2,6 +2,7 @@ import { AlgorithmController, CharacterMatch, LongestMatch, PrefixSuffixMatchPer
 import { SpamDetector } from "./spamDetector";
 import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
 import { NativeOrContract } from "../models/blockchian";
+import { AppConfig } from "../config/config.interface";
 
 interface ThreatSummary {
     explainer: string,
@@ -24,8 +25,8 @@ export class ThreatDetectionEngine {
     spamDetector: SpamDetector
     algorithm: AlgorithmController
 
-    constructor() {
-        this.spamDetector = new SpamDetector()
+    constructor(appConfig: AppConfig) {
+        this.spamDetector = new SpamDetector(appConfig)
         this.algorithm = new AlgorithmController()
     }
 

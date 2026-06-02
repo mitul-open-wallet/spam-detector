@@ -2,9 +2,10 @@ import { Router, Request, Response } from 'express';
 import { ThreatDetectionEngine } from "../controllers/threatDetectionEngine";
 import { schema } from '../schemas.ts/validationSchema';
 import validateWithZod from '../middleware/zodValidation';
+import { appConfig } from '../config';
 
 const router = Router()
-const threatDetection = new ThreatDetectionEngine()
+const threatDetection = new ThreatDetectionEngine(appConfig)
 
 router.post("/check", validateWithZod(schema.spam), async (request: Request, response: Response) => {
     const { txHash, address } = request.body;

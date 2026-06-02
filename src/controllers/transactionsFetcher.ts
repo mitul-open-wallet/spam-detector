@@ -321,4 +321,3 @@ export class TransactionsFetcher {
         return { blockchain: blockchain, transactions: walletTransactions }
     }
 }
-
