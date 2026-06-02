@@ -89,14 +89,13 @@ export class RedisClient {
 
     async queryTransaction(txHash: string): Promise<EvmChain.EvmWalletHistoryTransaction> {
         try {
-            console.log("called queryTransaction")
             const transaction = await this.redisClient.get(txHash) as string
             if (!transaction) {
                 throw new Error("Transaction not found in Redis")
             }
             return EvmWalletHistoryTransaction.fromJSON(JSON.parse(transaction))
         } catch (error) {
-            console.log("not found in redis: ", error)
+            console.log("not found in Redis")
             throw error
         }
     }
