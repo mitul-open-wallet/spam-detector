@@ -1,7 +1,7 @@
 import { AlgorithmController, CharacterMatch, LongestMatch, PrefixSuffixMatchPercentage, VisualTricks, WeightedMatch, ThreatElement, AttributeType } from "./threatDetectionAlgorithm";
 import { SpamDetector } from "./spamDetector";
 import EvmChain, { EvmAddress } from "@moralisweb3/common-evm-utils";
-import { NativeOrContract } from "../models/blockchian";
+import { Blockchain, NativeOrContract } from "../models/blockchian";
 import { AppConfig } from "../config/config.interface";
 
 interface ThreatSummary {
@@ -53,8 +53,8 @@ export class ThreatDetectionEngine {
      * }
      * ```
      */
-    async isSpam(txHash: string, userAddress: string): Promise<boolean> {
-        const isSpam = await this.spamDetector.isSpam(txHash, userAddress)
+    async isSpam(txHash: string, userAddress: string, blockchain?: Blockchain): Promise<boolean> {
+        const isSpam = await this.spamDetector.isSpam(txHash, userAddress, blockchain)
         return isSpam
     }
     

@@ -1,4 +1,4 @@
-import { NativeOrContract } from "../models/blockchian"
+import { Blockchain, NativeOrContract } from "../models/blockchian"
 import { TransactionsFetcher } from "./transactionsFetcher"
 import { RedisClient } from "../redis/redisClient"
 import { AppConfig } from "../config/config.interface"
@@ -14,12 +14,12 @@ export class SpamDetector {
         this.redisClient = RedisClient.getInstance(appConfig)
     }
 
-    async isSpam(txHash: string, userAddress: string): Promise<boolean> {
+    async isSpam(txHash: string, userAddress: string, blockchain?: Blockchain): Promise<boolean> {
         let transaction: EvmWalletHistoryTransaction | null
         try {
             transaction = await this.redisClient.queryTransaction(txHash)
         } catch (error) {
-            transaction = await this.transactionsFetcher.findTransaction(txHash, userAddress)
+            transaction = await this.transactionsFetcher.findTransaction(txHash, userAddress, blockchain)
             if (transaction) {
                 await this.redisClient.saveTransaction(txHash, transaction)
             }

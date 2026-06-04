@@ -9,11 +9,11 @@ export class TransactionsFetcher {
         Blockchain.ethereum,
         Blockchain.base,
         Blockchain.polygon,
-        // Blockchain.arbitrum,
-        // Blockchain.optimism,
-        // Blockchain.cronos,
-        // Blockchain.bsc,
-        // Blockchain.linea,
+        Blockchain.arbitrum,
+        Blockchain.optimism,
+        //Blockchain.cronos,
+        Blockchain.bsc,
+        //Blockchain.linea,
         Blockchain.monad
     ]
 
@@ -43,11 +43,11 @@ export class TransactionsFetcher {
         }
     }
 
-    async findTransaction(txhash: string, userAddress: string): Promise<EvmChain.EvmWalletHistoryTransaction> {
+    async findTransaction(txhash: string, userAddress: string, blockchain?: Blockchain): Promise<EvmChain.EvmWalletHistoryTransaction> {
         if (this.isInitialised === false) {
             throw new Error("Moralis client is not initialised")
         }
-        const blockchainTransactions = await this.allTransactions(userAddress)
+        const blockchainTransactions = await this.allTransactions(userAddress, txhash, blockchain)
         const filteredTransactions = blockchainTransactions
             .flatMap(blockchainTransaction => blockchainTransaction.transactions)
             .filter(item => item.hash === txhash)
@@ -279,9 +279,10 @@ export class TransactionsFetcher {
         return false;
     }
 
-    private async allTransactions(userAddress: string): Promise<BlockchainTransactions[]> {
+    private async allTransactions(userAddress: string, txHash?: string, blockchain?: Blockchain): Promise<BlockchainTransactions[]> {
+        let chains: Blockchain[] = blockchain ? [blockchain] : this.chains
         let results = await Promise.allSettled(
-            this.chains.map(chain => this.fetchTransactions(chain, userAddress))
+            chains.map(chain => this.fetchTransactions(chain, userAddress, txHash))
         );
         let fulfilled = results.filter((result): result is PromiseFulfilledResult<BlockchainTransactions> => {
             return result.status === "fulfilled"
@@ -297,7 +298,7 @@ export class TransactionsFetcher {
         return transactions
     }
 
-    private async fetchTransactions(blockchain: Blockchain, address: string): Promise<BlockchainTransactions> {
+    private async fetchTransactions(blockchain: Blockchain, address: string, txHash?: string): Promise<BlockchainTransactions> {
         let cursor: undefined | string = undefined;
         let pageSize = 100;
         let walletTransactions: EvmChain.EvmWalletHistoryTransaction[] = [];
@@ -313,6 +314,12 @@ export class TransactionsFetcher {
             let history = result.response;
             walletTransactions.push(...history.result);
             itearationIndex += 1;
+            if (txHash) {
+                if (walletTransactions.map(tx => tx.hash).includes(txHash)) {
+                    console.log(`early exit at ${itearationIndex} for ${blockchain} and hash ${txHash}`)
+                    break;
+                }
+            }
             if (result.response.pageSize < pageSize) {
                 break;
             }
@@ -320,4 +327,8 @@ export class TransactionsFetcher {
         } while (cursor);
         return { blockchain: blockchain, transactions: walletTransactions }
     }
+}
+
+export function toBlockchain(hex: string) {
+    return hex as Blockchain
 }

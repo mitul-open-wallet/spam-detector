@@ -1,4 +1,5 @@
 import z from "zod";
+import { Blockchain } from "../models/blockchian";
 
 // More specific regex patterns for different lengths
 const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -47,7 +48,8 @@ export const schema = {
     
     spam: z.object({
         txHash: transactionHash,
-        address: ethereumAddress
+        address: ethereumAddress,
+        chain: z.nativeEnum(Blockchain).optional()
     }),
 
     accidentalTransfer: z.object({
