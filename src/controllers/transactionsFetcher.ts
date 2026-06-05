@@ -11,9 +11,9 @@ export class TransactionsFetcher {
         Blockchain.polygon,
         Blockchain.arbitrum,
         Blockchain.optimism,
-        //Blockchain.cronos,
+        Blockchain.cronos,
         Blockchain.bsc,
-        //Blockchain.linea,
+        Blockchain.linea,
         Blockchain.monad
     ]
 
