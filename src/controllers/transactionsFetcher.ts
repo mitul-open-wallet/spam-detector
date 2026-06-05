@@ -242,7 +242,7 @@ export class TransactionsFetcher {
             if (decimals === 18) {
                 reductionThreshold = 5
             } else if (decimals === 6) {
-                reductionThreshold = 3
+                reductionThreshold = 2
             }
             const threshold = Math.pow(10, decimals - reductionThreshold)
             if (amountValue <= threshold) {
