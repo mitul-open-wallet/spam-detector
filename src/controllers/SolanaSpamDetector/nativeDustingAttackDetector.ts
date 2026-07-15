@@ -40,6 +40,9 @@ export class NativeDustingAttackDetector {
         transfer => transfer.amount === userTransfer.amount
       )
       
-      return hasSameAmountAcrossAllTransfers && this.isDust(userTransfer.amount)
+      if (hasSameAmountAcrossAllTransfers && this.isDust(userTransfer.amount)) {
+        return true
+      } 
+      return this.isDust(userTransfer.amount)
     }
 }
