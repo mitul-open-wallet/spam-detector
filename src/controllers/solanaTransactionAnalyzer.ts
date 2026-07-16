@@ -7,7 +7,7 @@ import { SolanaTransaction } from "../models/solanaTransaction";
 import { AddressSimilarityDetector, SolanaThreatItem, SolanaThreatSummary, SolanaThreatType } from "./SolanaSpamDetector/addressSimilarityDetector";
 
 class SolanaTransactionCollection {
-    receivedTransactions: SolanaTransaction[] 
+    receivedTransactions: SolanaTransaction[]
     sentTransactions: SolanaTransaction[]
 
     constructor() {
@@ -48,10 +48,10 @@ export class SolanaTransactionAnalyzer {
      * @param addressSimilarityDetector - Detector for similar addresses used in spoofing
      */
     constructor(
-        solanaTransactionClient: SolanaTransactionClientInterface, 
+        solanaTransactionClient: SolanaTransactionClientInterface,
         nativeDustingAttackDetector: NativeDustingAttackDetector,
-        nftSpamDetector: NFTSpamDetector, 
-        swapSpamDetector: SwapSpamDetector, 
+        nftSpamDetector: NFTSpamDetector,
+        swapSpamDetector: SwapSpamDetector,
         tokenSpamDetector: TokenSpamDetector,
         addressSimilarityDetector: AddressSimilarityDetector
     ) {
@@ -70,10 +70,10 @@ export class SolanaTransactionAnalyzer {
      * @param targetAddress - The target address to check for threats
      * @returns Promise resolving to threat summary with detected threats and safety status
      */
-    async findThreat(userAddress: string, targetAddress: string, enableOutgoingAddressCheck: boolean = false): Promise<SolanaThreatSummary> {    
+    async findThreat(userAddress: string, targetAddress: string, enableOutgoingAddressCheck: boolean = false): Promise<SolanaThreatSummary> {
         const transactions = await this.solanaTransactionClient.fetch(userAddress)
         const lowerTargetAddress = targetAddress.toLowerCase()
-        
+
         const transactionCollection = transactions.reduce((acc, tx) => {
             if (this.isUserReceivingFunds(tx, userAddress)) {
                 acc.receivedTransactions.push(tx)
@@ -86,7 +86,7 @@ export class SolanaTransactionAnalyzer {
         const spamResults = await Promise.all(
             transactionCollection.receivedTransactions.map(tx => this.categorisedAsSpam(tx, userAddress))
         )
-        
+
         const incomingSpamTransactions = transactionCollection.receivedTransactions.filter((_, index) => spamResults[index])
 
         const incomingSpamAddresses = new Set<string>()
@@ -96,7 +96,7 @@ export class SolanaTransactionAnalyzer {
         })
 
         let threatItems: SolanaThreatItem[] = []
-        
+
         if (incomingSpamAddresses.has(lowerTargetAddress)) {
             threatItems.push({
                 source: targetAddress,
@@ -114,14 +114,14 @@ export class SolanaTransactionAnalyzer {
 
             const validOutgoingAddressArray = Array.from(validOutgoingAddresses)
 
-            const threatProfile = validOutgoingAddressArray.flatMap(item => 
+            const threatProfile = validOutgoingAddressArray.flatMap(item =>
                 this.checkSimilarity(item, targetAddress)
             )
             threatItems.push(...threatProfile)
         }
 
         const isSafe = threatItems.length === 0
-        
+
         return {
             threatItems: threatItems,
             isSafe: isSafe
@@ -195,7 +195,7 @@ export class SolanaTransactionAnalyzer {
                 description = "Address has matching prefix or suffix with a known address, potentially attempting address spoofing"
                 break
             default:
-                description =  "Unknown threat type"
+                description = "Unknown threat type"
                 break
         }
         return {
@@ -215,19 +215,19 @@ export class SolanaTransactionAnalyzer {
     private isUserReceivingFunds(transaction: SolanaTransaction, userAddress: string): boolean {
         const hasIncomingNativeTransfer = transaction.nativeTransfers.some(nativeTransfer => nativeTransfer.toUserAccount === userAddress)
         const hasIncomingTokenTransfer = transaction.tokenTransfers.some(tokenTransfer => tokenTransfer.toUserAccount === userAddress)
-    
+
         const account = transaction.accountData.find(account => account.account === userAddress)
-        let isIncomingAccountNativeBalance = account && (account.nativeBalanceChange > 0) 
-    
+        let isIncomingAccountNativeBalance = account && (account.nativeBalanceChange > 0)
+
         const tokenBalanceChanges = transaction.accountData.flatMap(account => account.tokenBalanceChanges)
         const tokenBalanceChangeItem = tokenBalanceChanges.find(balanceChange => balanceChange.userAccount === userAddress)
         const hasReceivedToken = tokenBalanceChangeItem && (parseInt(tokenBalanceChangeItem.rawTokenAmount.tokenAmount) > 0)
-    
+
         const nftOwners = transaction.events.compressed?.map(item => item.newLeafOwner)
-    
+
         const nativeInput = transaction.events.swap?.nativeInput
         const hasIncomingNativeTransferEvent = nativeInput?.account === userAddress && parseInt(nativeInput.amount) > 0
-        const hasIncomingTokenTransferEvent  = transaction.events.swap?.tokenInputs.some(item => (item.userAccount === userAddress && parseInt(item.rawTokenAmount.tokenAmount) > 0))
+        const hasIncomingTokenTransferEvent = transaction.events.swap?.tokenInputs.some(item => (item.userAccount === userAddress && parseInt(item.rawTokenAmount.tokenAmount) > 0))
         const isNFTBeingReceived = nftOwners?.some(owner => owner === userAddress)
 
         return (hasIncomingNativeTransfer || hasIncomingTokenTransfer) || (isIncomingAccountNativeBalance ?? false) || (hasReceivedToken ?? false) || (isNFTBeingReceived ?? false) || hasIncomingNativeTransferEvent || (hasIncomingTokenTransferEvent ?? false)
@@ -250,7 +250,7 @@ export class SolanaTransactionAnalyzer {
             error.name = 'TRANSACTION_NOT_FOUND'
             throw error
         }
-    }  
+    }
 
     /**
      * Analyzes multiple transactions in bulk to determine which are spam.
@@ -267,7 +267,7 @@ export class SolanaTransactionAnalyzer {
                     isSpam: await this.categorisedAsSpam(item, userAddress)
                 }
             }
-        )
+            )
         )
         const found = spamList.map(item => item.txHash)
         const undetermined = txHashes.filter(item => !found.includes(item))

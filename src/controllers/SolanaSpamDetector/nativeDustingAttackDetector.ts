@@ -2,47 +2,50 @@ import { SolanaTransaction } from "../../models/solanaTransaction"
 
 export class NativeDustingAttackDetector {
 
-    /**
-     * Determines if a SOL amount is considered "dust" (very small amount used in dusting attacks)
-     * @param amount - The SOL amount to check (in lamports)
-     * @returns boolean - True if the amount is considered dust, false otherwise
-     */
-    private isDust(amount: number): boolean {
-        const SOLANA_DECIMALS = 9
-        const DUST_THRESHOLD_EXPONENT = 7
-        const dustThreshold = Math.pow(10, SOLANA_DECIMALS - DUST_THRESHOLD_EXPONENT)
-  
-        return amount <= dustThreshold
+  /**
+   * Determines if a SOL amount is considered "dust" (very small amount used in dusting attacks)
+   * @param amount - The SOL amount to check (in lamports)
+   * @returns boolean - True if the amount is considered dust, false otherwise
+   */
+  private isDust(amount: number): boolean {
+    const SOLANA_DECIMALS = 9
+    const DUST_THRESHOLD_EXPONENT = 6
+    const dustThreshold = Math.pow(10, SOLANA_DECIMALS - DUST_THRESHOLD_EXPONENT)
+    console.log("isDust", amount, dustThreshold)
+    return amount <= dustThreshold
+  }
+
+  /**
+   * Detects native SOL dusting attacks where multiple recipients receive identical small amounts
+   * @param userAddress - The user's wallet address
+   * @param transaction - The Solana transaction to analyze
+   * @returns Promise<boolean> - True if native dusting attack is detected, false otherwise
+   */
+  async detectNativeDustingAttack(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
+    const { nativeTransfers } = transaction
+    if (!nativeTransfers) {
+      return false
     }
 
-    /**
-     * Detects native SOL dusting attacks where multiple recipients receive identical small amounts
-     * @param userAddress - The user's wallet address
-     * @param transaction - The Solana transaction to analyze
-     * @returns Promise<boolean> - True if native dusting attack is detected, false otherwise
-     */
-    async detectNativeDustingAttack(userAddress: string, transaction: SolanaTransaction): Promise<boolean> {
-      const { nativeTransfers } = transaction
-      
-      if (!nativeTransfers || nativeTransfers.length <= 1) {
-        return false
-      }
-      
-      const userTransfer = nativeTransfers.find(
-        transfer => transfer.toUserAccount === userAddress
-      )
-      
-      if (!userTransfer) {
-        return false
-      }
-      
-      const hasSameAmountAcrossAllTransfers = nativeTransfers.every(
+    const userTransfer = nativeTransfers.find(
+      transfer => transfer.toUserAccount === userAddress
+    )
+
+    if (!userTransfer) {
+      return false
+    }
+
+    let hasSameAmountAcrossAllTransfers = false
+
+    if (nativeTransfers.length > 1) {
+      hasSameAmountAcrossAllTransfers = nativeTransfers.every(
         transfer => transfer.amount === userTransfer.amount
       )
-      
-      if (hasSameAmountAcrossAllTransfers && this.isDust(userTransfer.amount)) {
-        return true
-      } 
-      return this.isDust(userTransfer.amount)
     }
+
+    if (hasSameAmountAcrossAllTransfers && this.isDust(userTransfer.amount)) {
+      return true
+    }
+    return this.isDust(userTransfer.amount)
+  }
 }
