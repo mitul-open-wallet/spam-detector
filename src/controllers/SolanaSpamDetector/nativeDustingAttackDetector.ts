@@ -43,9 +43,14 @@ export class NativeDustingAttackDetector {
       )
     }
 
-    if (hasSameAmountAcrossAllTransfers && this.isDust(userTransfer.amount)) {
+    const isDust = this.isDust(userTransfer.amount)
+
+    console.log(`Solana nativeDustingAttackDetector: hasSameAmountAcrossAllTransfers: ${hasSameAmountAcrossAllTransfers}, isDust: ${isDust}`)
+
+    if (hasSameAmountAcrossAllTransfers && isDust) {
       return true
     }
-    return this.isDust(userTransfer.amount)
+    
+    return isDust
   }
 }
